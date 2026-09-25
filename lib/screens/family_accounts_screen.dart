@@ -6,6 +6,7 @@ import '../utils/formatters.dart';
 import '../widgets/account_card.dart';
 import '../widgets/amount_text.dart';
 import '../widgets/transaction_tile.dart';
+import 'account_detail_screen.dart';
 
 class FamilyAccountsScreen extends StatelessWidget {
   const FamilyAccountsScreen({super.key});
@@ -83,7 +84,15 @@ class FamilyAccountsScreen extends StatelessWidget {
                 const SizedBox(height: 16),
                 ...accounts.map((a) => Padding(
                       padding: const EdgeInsets.only(bottom: 8),
-                      child: AccountCard(account: a),
+                      child: AccountCard(
+                        account: a,
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => AccountDetailScreen(accountId: a.id),
+                          ),
+                        ),
+                      ),
                     )),
                 const SizedBox(height: 24),
                 Text('Tranzacții recente', style: Theme.of(context).textTheme.titleMedium),

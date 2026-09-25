@@ -9,8 +9,14 @@ import '../utils/formatters.dart';
 class AddTransactionScreen extends StatefulWidget {
   final int initialTab;
   final MoneyTransaction? editing;
+  final String? initialAccountId;
 
-  const AddTransactionScreen({super.key, this.initialTab = 0, this.editing});
+  const AddTransactionScreen({
+    super.key,
+    this.initialTab = 0,
+    this.editing,
+    this.initialAccountId,
+  });
 
   @override
   State<AddTransactionScreen> createState() => _AddTransactionScreenState();
@@ -70,10 +76,10 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
       ),
       body: TabBarView(
         controller: _tabController,
-        children: const [
-          _IncomeExpenseForm(isIncome: true),
-          _IncomeExpenseForm(isIncome: false),
-          _TransferForm(),
+        children: [
+          _IncomeExpenseForm(isIncome: true, initialAccountId: widget.initialAccountId),
+          _IncomeExpenseForm(isIncome: false, initialAccountId: widget.initialAccountId),
+          _TransferForm(initialFromAccountId: widget.initialAccountId),
         ],
       ),
     );
@@ -83,7 +89,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
 class _IncomeExpenseForm extends StatefulWidget {
   final bool isIncome;
   final MoneyTransaction? editing;
-  const _IncomeExpenseForm({required this.isIncome, this.editing});
+  final String? initialAccountId;
+  const _IncomeExpenseForm({required this.isIncome, this.editing, this.initialAccountId});
 
   @override
   State<_IncomeExpenseForm> createState() => _IncomeExpenseFormState();
@@ -107,7 +114,7 @@ class _IncomeExpenseFormState extends State<_IncomeExpenseForm> {
   @override
   void initState() {
     super.initState();
-    _accountId = widget.editing?.fromAccountId;
+    _accountId = widget.editing?.fromAccountId ?? widget.initialAccountId;
     _category = widget.editing?.category;
   }
 
@@ -322,7 +329,8 @@ class _IncomeExpenseFormState extends State<_IncomeExpenseForm> {
 
 class _TransferForm extends StatefulWidget {
   final MoneyTransaction? editing;
-  const _TransferForm({this.editing});
+  final String? initialFromAccountId;
+  const _TransferForm({this.editing, this.initialFromAccountId});
 
   @override
   State<_TransferForm> createState() => _TransferFormState();
@@ -351,7 +359,7 @@ class _TransferFormState extends State<_TransferForm> {
   @override
   void initState() {
     super.initState();
-    _fromId = widget.editing?.fromAccountId;
+    _fromId = widget.editing?.fromAccountId ?? widget.initialFromAccountId;
     _toId = widget.editing?.toAccountId;
   }
 
