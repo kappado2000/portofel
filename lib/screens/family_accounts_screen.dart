@@ -111,7 +111,7 @@ class FamilyAccountsScreen extends StatelessWidget {
       physics: const NeverScrollableScrollPhysics(),
       buildDefaultDragHandles: false,
       itemCount: accounts.length,
-      onReorder: (oldIndex, newIndex) =>
+      onReorderItem: (oldIndex, newIndex) =>
           provider.reorderAccounts(AccountGroup.family, oldIndex, newIndex),
       itemBuilder: (context, index) {
         final account = accounts[index];

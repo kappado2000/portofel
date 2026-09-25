@@ -77,7 +77,7 @@ class AccountsScreen extends StatelessWidget {
       physics: const NeverScrollableScrollPhysics(),
       buildDefaultDragHandles: false,
       itemCount: accounts.length,
-      onReorder: (oldIndex, newIndex) => provider.reorderAccounts(group, oldIndex, newIndex),
+      onReorderItem: (oldIndex, newIndex) => provider.reorderAccounts(group, oldIndex, newIndex),
       itemBuilder: (context, index) {
         final account = accounts[index];
         return Padding(

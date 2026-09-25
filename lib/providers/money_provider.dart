@@ -138,11 +138,11 @@ class MoneyProvider extends ChangeNotifier {
 
   /// Reordonează conturile din [group], după un drag-and-drop într-un
   /// ReorderableListView — [oldIndex]/[newIndex] sunt indicii primiți direct
-  /// din callback-ul `onReorder` (ajustarea standard pentru newIndex > oldIndex
-  /// se face aici, nu la locul apelului).
+  /// din callback-ul `onReorderItem`, care are deja newIndex ajustat pentru
+  /// elementul scos de la oldIndex (spre deosebire de vechiul `onReorder`,
+  /// deprecated în Flutter 3.47).
   Future<void> reorderAccounts(AccountGroup group, int oldIndex, int newIndex) async {
     final list = _sortedByGroup(group).toList();
-    if (newIndex > oldIndex) newIndex -= 1;
     final moved = list.removeAt(oldIndex);
     list.insert(newIndex, moved);
     for (var i = 0; i < list.length; i++) {
