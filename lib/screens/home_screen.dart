@@ -55,6 +55,14 @@ class _HomeScreenState extends State<HomeScreen> {
 
     final filterSubtotal = visibleAccounts.fold<double>(0, (sum, a) => sum + a.balance);
 
+    // Cardul "Total estimat" folosește intenționat culorile temei opuse
+    // (Dark când ești pe Luminos, și invers) — cerut explicit.
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final totalCardScheme = ColorScheme.fromSeed(
+      seedColor: Colors.teal,
+      brightness: isDark ? Brightness.light : Brightness.dark,
+    );
+
     return Scaffold(
       appBar: AppBar(
         title: const Row(
@@ -98,25 +106,34 @@ class _HomeScreenState extends State<HomeScreen> {
           padding: const EdgeInsets.all(16),
           children: [
             Card(
-              color: Theme.of(context).colorScheme.primaryContainer,
+              color: totalCardScheme.primaryContainer,
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Total estimat', style: Theme.of(context).textTheme.titleSmall),
+                    Text(
+                      'Total estimat',
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleSmall
+                          ?.copyWith(color: totalCardScheme.onPrimaryContainer),
+                    ),
                     const SizedBox(height: 6),
                     AmountText(
                       '${formatNumber(provider.totalInEur())} €',
-                      style: Theme.of(context)
-                          .textTheme
-                          .headlineSmall
-                          ?.copyWith(fontWeight: FontWeight.bold),
+                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: totalCardScheme.onPrimaryContainer,
+                          ),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       '≈ ${formatNumber(provider.totalInRon())} lei',
-                      style: Theme.of(context).textTheme.bodySmall,
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodySmall
+                          ?.copyWith(color: totalCardScheme.onPrimaryContainer),
                     ),
                   ],
                 ),

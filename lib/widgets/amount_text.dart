@@ -13,7 +13,7 @@ class AmountText extends StatelessWidget {
     this.text, {
     super.key,
     this.style,
-    this.decimalScale = 0.7,
+    this.decimalScale = 0.58,
     this.textAlign,
   });
 
@@ -27,8 +27,10 @@ class AmountText extends StatelessWidget {
 
     final main = text.substring(0, idx);
     final decimals = text.substring(idx);
+    final baseFontSize = baseStyle.fontSize ?? 14;
     final smallStyle = baseStyle.copyWith(
-      fontSize: (baseStyle.fontSize ?? 14) * decimalScale,
+      fontSize: baseFontSize * decimalScale,
+      fontWeight: FontWeight.normal,
     );
 
     return Text.rich(
