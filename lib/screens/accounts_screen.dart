@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/account.dart';
 import '../providers/money_provider.dart';
+import '../utils/account_actions.dart';
 import '../widgets/account_card.dart';
 
 class AccountsScreen extends StatelessWidget {
@@ -32,7 +33,7 @@ class AccountsScreen extends StatelessWidget {
               child: Text('Niciun cont personal'),
             )
           else
-            ...personal.map((a) => _accountTile(context, provider, a)),
+            _reorderableGroup(context, provider, personal, AccountGroup.personal),
           const SizedBox(height: 20),
           Row(
             children: [
@@ -53,7 +54,7 @@ class AccountsScreen extends StatelessWidget {
               child: Text('Niciun cont de familie'),
             )
           else
-            ...family.map((a) => _accountTile(context, provider, a)),
+            _reorderableGroup(context, provider, family, AccountGroup.family),
           const SizedBox(height: 80),
         ],
       ),
@@ -65,120 +66,48 @@ class AccountsScreen extends StatelessWidget {
     );
   }
 
-  List<DropdownMenuItem<AccountGroup>> _groupItems() => const [
-        DropdownMenuItem(
-          value: AccountGroup.personal,
-          child: Row(
-            children: [
-              Icon(Icons.person_outline, size: 18),
-              SizedBox(width: 8),
-              Text('Personal'),
-            ],
-          ),
-        ),
-        DropdownMenuItem(
-          value: AccountGroup.family,
-          child: Row(
-            children: [
-              Icon(Icons.family_restroom, size: 18),
-              SizedBox(width: 8),
-              Text('Familie'),
-            ],
-          ),
-        ),
-      ];
-
-  Widget _accountTile(BuildContext context, MoneyProvider provider, Account account) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Dismissible(
-        key: ValueKey(account.id),
-        direction: DismissDirection.endToStart,
-        confirmDismiss: (_) => _confirmDelete(context, provider, account),
-        background: Container(
-          color: Colors.red,
-          alignment: Alignment.centerRight,
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: const Icon(Icons.delete, color: Colors.white),
-        ),
-        child: AccountCard(
-          account: account,
-          onTap: () => _editAccount(context, provider, account),
-        ),
-      ),
-    );
-  }
-
-  Future<bool> _confirmDelete(BuildContext context, MoneyProvider provider, Account account) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Șterge contul?'),
-        content: Text('Vrei să ștergi contul "${account.name}"?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Anulează')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Șterge')),
-        ],
-      ),
-    );
-    if (confirmed != true) return false;
-    try {
-      await provider.deleteAccount(account.id);
-      return true;
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
-        );
-      }
-      return false;
-    }
-  }
-
-  Future<void> _editAccount(BuildContext context, MoneyProvider provider, Account account) async {
-    final controller = TextEditingController(text: account.name);
-    AccountGroup group = account.group;
-
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setState) => AlertDialog(
-          title: const Text('Editează contul'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: controller,
-                autofocus: true,
-                decoration: const InputDecoration(labelText: 'Nume cont'),
-              ),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<AccountGroup>(
-                initialValue: group,
-                decoration: const InputDecoration(labelText: 'Grup'),
-                items: _groupItems(),
-                onChanged: (v) => setState(() => group = v ?? AccountGroup.personal),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Anulează')),
-            FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Salvează'),
+  Widget _reorderableGroup(
+    BuildContext context,
+    MoneyProvider provider,
+    List<Account> accounts,
+    AccountGroup group,
+  ) {
+    return ReorderableListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      buildDefaultDragHandles: false,
+      itemCount: accounts.length,
+      onReorder: (oldIndex, newIndex) => provider.reorderAccounts(group, oldIndex, newIndex),
+      itemBuilder: (context, index) {
+        final account = accounts[index];
+        return Padding(
+          key: ValueKey(account.id),
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Dismissible(
+            key: ValueKey('dismiss_${account.id}'),
+            direction: DismissDirection.endToStart,
+            confirmDismiss: (_) => confirmDeleteAccount(context, provider, account),
+            background: Container(
+              color: Colors.red,
+              alignment: Alignment.centerRight,
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: const Icon(Icons.delete, color: Colors.white),
             ),
-          ],
-        ),
-      ),
+            child: AccountCard(
+              account: account,
+              onTap: () => editAccountDialog(context, provider, account),
+              trailingHandle: ReorderableDragStartListener(
+                index: index,
+                child: const Padding(
+                  padding: EdgeInsets.only(left: 4),
+                  child: Icon(Icons.drag_handle),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
     );
-
-    if (result == true) {
-      final newName = controller.text.trim();
-      if (newName.isNotEmpty) {
-        await provider.renameAccount(account.id, newName);
-      }
-      await provider.setAccountGroup(account.id, group);
-    }
   }
 
   Future<void> _addAccount(BuildContext context, MoneyProvider provider) async {
@@ -226,7 +155,7 @@ class AccountsScreen extends StatelessWidget {
                 DropdownButtonFormField<AccountGroup>(
                   initialValue: group,
                   decoration: const InputDecoration(labelText: 'Grup'),
-                  items: _groupItems(),
+                  items: groupDropdownItems(),
                   onChanged: (v) => setState(() => group = v ?? AccountGroup.personal),
                 ),
                 const SizedBox(height: 12),

@@ -36,6 +36,9 @@ class PortofelApp extends StatelessWidget {
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: lightScheme,
+        // Fundal galben deschis, ca la Calorii Fit — doar pe tema luminoasă
+        // (pe dark rămâne suprafața normală, inversarea n-ar avea sens aici).
+        scaffoldBackgroundColor: const Color(0xFFFFF6DF),
         outlinedButtonTheme: OutlinedButtonThemeData(
           style: OutlinedButton.styleFrom(
             backgroundColor: lightScheme.secondaryContainer,

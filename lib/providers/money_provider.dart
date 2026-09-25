@@ -22,11 +22,15 @@ class MoneyProvider extends ChangeNotifier {
 
   List<Account> get accounts => List.unmodifiable(_accounts);
 
-  List<Account> get personalAccounts =>
-      List.unmodifiable(_accounts.where((a) => a.group == AccountGroup.personal));
+  List<Account> _sortedByGroup(AccountGroup group) {
+    final list = _accounts.where((a) => a.group == group).toList();
+    list.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+    return List.unmodifiable(list);
+  }
 
-  List<Account> get familyAccounts =>
-      List.unmodifiable(_accounts.where((a) => a.group == AccountGroup.family));
+  List<Account> get personalAccounts => _sortedByGroup(AccountGroup.personal);
+
+  List<Account> get familyAccounts => _sortedByGroup(AccountGroup.family);
 
   /// Contul preselectat implicit în formulare: Cash Euro, dacă există,
   /// altfel primul cont disponibil.
@@ -85,9 +89,9 @@ class MoneyProvider extends ChangeNotifier {
 
   void _seedDefaultAccounts() {
     final defaults = [
-      Account(id: _uuid.v4(), name: 'Cash Lei', currency: AccountCurrency.ron, kind: AccountKind.cash),
-      Account(id: _uuid.v4(), name: 'Cash Euro', currency: AccountCurrency.eur, kind: AccountKind.cash),
-      Account(id: _uuid.v4(), name: 'Cont', currency: AccountCurrency.ron, kind: AccountKind.bank),
+      Account(id: _uuid.v4(), name: 'Cash Lei', currency: AccountCurrency.ron, kind: AccountKind.cash, sortOrder: 0),
+      Account(id: _uuid.v4(), name: 'Cash Euro', currency: AccountCurrency.eur, kind: AccountKind.cash, sortOrder: 1),
+      Account(id: _uuid.v4(), name: 'Cont', currency: AccountCurrency.ron, kind: AccountKind.bank, sortOrder: 2),
     ];
     for (final a in defaults) {
       _accountsBox!.put(a.id, a.toMap());
@@ -115,6 +119,9 @@ class MoneyProvider extends ChangeNotifier {
     double initialBalance = 0,
     AccountGroup group = AccountGroup.personal,
   }) async {
+    final maxOrder = _accounts
+        .where((a) => a.group == group)
+        .fold(-1, (max, a) => a.sortOrder > max ? a.sortOrder : max);
     final account = Account(
       id: _uuid.v4(),
       name: name,
@@ -122,9 +129,26 @@ class MoneyProvider extends ChangeNotifier {
       kind: kind,
       balance: initialBalance,
       group: group,
+      sortOrder: maxOrder + 1,
     );
     _accounts.add(account);
     _persistAccount(account);
+    notifyListeners();
+  }
+
+  /// Reordonează conturile din [group], după un drag-and-drop într-un
+  /// ReorderableListView — [oldIndex]/[newIndex] sunt indicii primiți direct
+  /// din callback-ul `onReorder` (ajustarea standard pentru newIndex > oldIndex
+  /// se face aici, nu la locul apelului).
+  Future<void> reorderAccounts(AccountGroup group, int oldIndex, int newIndex) async {
+    final list = _sortedByGroup(group).toList();
+    if (newIndex > oldIndex) newIndex -= 1;
+    final moved = list.removeAt(oldIndex);
+    list.insert(newIndex, moved);
+    for (var i = 0; i < list.length; i++) {
+      list[i].sortOrder = i;
+      _persistAccount(list[i]);
+    }
     notifyListeners();
   }
 

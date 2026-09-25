@@ -11,6 +11,7 @@ class Account {
   AccountKind kind;
   double balance;
   AccountGroup group;
+  int sortOrder;
 
   Account({
     required this.id,
@@ -19,6 +20,7 @@ class Account {
     required this.kind,
     this.balance = 0,
     this.group = AccountGroup.personal,
+    this.sortOrder = 0,
   });
 
   Map<String, dynamic> toMap() => {
@@ -28,6 +30,7 @@ class Account {
         'kind': kind.name,
         'balance': balance,
         'group': group.name,
+        'sortOrder': sortOrder,
       };
 
   factory Account.fromMap(Map map) => Account(
@@ -37,5 +40,9 @@ class Account {
         kind: AccountKind.values.byName(map['kind'] as String),
         balance: (map['balance'] as num).toDouble(),
         group: AccountGroup.values.byName(map['group'] as String? ?? 'personal'),
+        // Missing for accounts saved before drag-to-reorder existed — falls
+        // back to 0 so they all tie and simply keep Hive's insertion order
+        // (their existing on-screen order) until reordered once.
+        sortOrder: (map['sortOrder'] as num?)?.toInt() ?? 0,
       );
 }

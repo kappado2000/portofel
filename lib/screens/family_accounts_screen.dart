@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/account.dart';
 import '../providers/money_provider.dart';
+import '../utils/account_actions.dart';
 import '../utils/formatters.dart';
 import '../widgets/account_card.dart';
 import '../widgets/amount_text.dart';
@@ -82,18 +83,7 @@ class FamilyAccountsScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 16),
-                ...accounts.map((a) => Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: AccountCard(
-                        account: a,
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => AccountDetailScreen(accountId: a.id),
-                          ),
-                        ),
-                      ),
-                    )),
+                _reorderableFamilyList(context, provider, accounts),
                 const SizedBox(height: 24),
                 Text('Tranzacții recente', style: Theme.of(context).textTheme.titleMedium),
                 const SizedBox(height: 8),
@@ -108,6 +98,56 @@ class FamilyAccountsScreen extends StatelessWidget {
                   ),
               ],
             ),
+    );
+  }
+
+  Widget _reorderableFamilyList(
+    BuildContext context,
+    MoneyProvider provider,
+    List<Account> accounts,
+  ) {
+    return ReorderableListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      buildDefaultDragHandles: false,
+      itemCount: accounts.length,
+      onReorder: (oldIndex, newIndex) =>
+          provider.reorderAccounts(AccountGroup.family, oldIndex, newIndex),
+      itemBuilder: (context, index) {
+        final account = accounts[index];
+        return Padding(
+          key: ValueKey(account.id),
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Dismissible(
+            key: ValueKey('dismiss_${account.id}'),
+            direction: DismissDirection.endToStart,
+            confirmDismiss: (_) => confirmDeleteAccount(context, provider, account),
+            background: Container(
+              color: Colors.red,
+              alignment: Alignment.centerRight,
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: const Icon(Icons.delete, color: Colors.white),
+            ),
+            child: AccountCard(
+              account: account,
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => AccountDetailScreen(accountId: account.id),
+                ),
+              ),
+              onEdit: () => editAccountDialog(context, provider, account),
+              trailingHandle: ReorderableDragStartListener(
+                index: index,
+                child: const Padding(
+                  padding: EdgeInsets.only(left: 4),
+                  child: Icon(Icons.drag_handle),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }
