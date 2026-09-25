@@ -5,6 +5,7 @@ import '../models/money_transaction.dart';
 import '../providers/money_provider.dart';
 import '../utils/formatters.dart';
 import '../widgets/account_card.dart';
+import '../widgets/amount_text.dart';
 import '../widgets/transaction_tile.dart';
 import 'accounts_screen.dart';
 import 'add_transaction_screen.dart';
@@ -105,7 +106,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   children: [
                     Text('Total estimat', style: Theme.of(context).textTheme.titleSmall),
                     const SizedBox(height: 6),
-                    Text(
+                    AmountText(
                       '${formatNumber(provider.totalInEur())} €',
                       style: Theme.of(context)
                           .textTheme

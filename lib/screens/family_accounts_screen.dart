@@ -4,6 +4,7 @@ import '../models/account.dart';
 import '../providers/money_provider.dart';
 import '../utils/formatters.dart';
 import '../widgets/account_card.dart';
+import '../widgets/amount_text.dart';
 import '../widgets/transaction_tile.dart';
 
 class FamilyAccountsScreen extends StatelessWidget {
@@ -63,7 +64,7 @@ class FamilyAccountsScreen extends StatelessWidget {
                       children: [
                         Text('Total familie', style: Theme.of(context).textTheme.titleSmall),
                         const SizedBox(height: 6),
-                        Text(
+                        AmountText(
                           '${formatNumber(provider.totalInEur(group: AccountGroup.family))} €',
                           style: Theme.of(context)
                               .textTheme

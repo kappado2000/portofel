@@ -3,6 +3,7 @@ import '../models/money_transaction.dart';
 import '../providers/money_provider.dart';
 import '../screens/add_transaction_screen.dart';
 import '../utils/formatters.dart';
+import 'amount_text.dart';
 
 class TransactionTile extends StatelessWidget {
   final MoneyTransaction tx;
@@ -72,7 +73,7 @@ class TransactionTile extends StatelessWidget {
         ),
         title: Text(title),
         subtitle: Text(subtitle),
-        trailing: Text(
+        trailing: AmountText(
           amountText,
           style: TextStyle(color: color, fontWeight: FontWeight.bold),
         ),

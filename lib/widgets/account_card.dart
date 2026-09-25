@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/account.dart';
 import '../utils/formatters.dart';
+import 'amount_text.dart';
 
 class AccountCard extends StatelessWidget {
   final Account account;
@@ -44,7 +45,7 @@ class AccountCard extends StatelessWidget {
                   ],
                 ),
               ),
-              Text(
+              AmountText(
                 formatAmount(account.balance, account.currency),
                 style: Theme.of(context)
                     .textTheme

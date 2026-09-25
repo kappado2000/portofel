@@ -6,6 +6,7 @@ import '../providers/money_provider.dart';
 import '../services/excel_export_service.dart';
 import '../services/pdf_export_service.dart';
 import '../utils/formatters.dart';
+import '../widgets/amount_text.dart';
 import '../widgets/transaction_tile.dart';
 
 class HistoryScreen extends StatefulWidget {
@@ -272,13 +273,13 @@ class _TotalChip extends StatelessWidget {
                 ?.copyWith(color: Colors.white.withValues(alpha: 0.85)),
           ),
           if (entries.isEmpty)
-            Text(
+            AmountText(
               formatAmount(0, AccountCurrency.ron),
               style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
             )
           else
             ...entries.map(
-              (e) => Text(
+              (e) => AmountText(
                 formatAmount(e.value, e.key),
                 style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
               ),
