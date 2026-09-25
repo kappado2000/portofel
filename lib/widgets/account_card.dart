@@ -18,6 +18,7 @@ class AccountCard extends StatelessWidget {
         : (isEur ? Colors.teal : Colors.brown.shade400);
 
     return Card(
+      color: Theme.of(context).colorScheme.surfaceContainerHigh,
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
