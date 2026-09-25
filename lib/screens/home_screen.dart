@@ -55,8 +55,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
     final filterSubtotal = visibleAccounts.fold<double>(0, (sum, a) => sum + a.balance);
 
-    final totalCardScheme = Theme.of(context).colorScheme;
-
     return Scaffold(
       appBar: AppBar(
         title: const Row(
@@ -108,34 +106,25 @@ class _HomeScreenState extends State<HomeScreen> {
           padding: const EdgeInsets.all(16),
           children: [
             Card(
-              color: totalCardScheme.primaryContainer,
+              color: Theme.of(context).colorScheme.secondaryContainer,
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Total estimat',
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleSmall
-                          ?.copyWith(color: totalCardScheme.onPrimaryContainer),
-                    ),
+                    Text('Total estimat', style: Theme.of(context).textTheme.titleSmall),
                     const SizedBox(height: 6),
                     AmountText(
                       '${formatNumber(provider.totalInEur())} €',
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: totalCardScheme.onPrimaryContainer,
-                          ),
+                      style: Theme.of(context)
+                          .textTheme
+                          .headlineSmall
+                          ?.copyWith(fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       '≈ ${formatNumber(provider.totalInRon())} lei',
-                      style: Theme.of(context)
-                          .textTheme
-                          .bodySmall
-                          ?.copyWith(color: totalCardScheme.onPrimaryContainer),
+                      style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ],
                 ),
