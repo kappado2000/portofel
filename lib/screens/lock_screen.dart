@@ -20,6 +20,7 @@ class _LockScreenState extends State<LockScreen> {
   final _confirmController = TextEditingController();
   final _answerController = TextEditingController();
   final _fieldFocusNode = FocusNode();
+  final _answerFocusNode = FocusNode();
 
   late _Stage _stage;
   String? _error;
@@ -54,12 +55,19 @@ class _LockScreenState extends State<LockScreen> {
     _confirmController.dispose();
     _answerController.dispose();
     _fieldFocusNode.dispose();
+    _answerFocusNode.dispose();
     super.dispose();
   }
 
   void _refocusField() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _fieldFocusNode.requestFocus();
+    });
+  }
+
+  void _refocusAnswerField() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _answerFocusNode.requestFocus();
     });
   }
 
@@ -161,8 +169,10 @@ class _LockScreenState extends State<LockScreen> {
           const SizedBox(height: 12),
           TextField(
             controller: _answerController,
-            focusNode: _fieldFocusNode,
+            focusNode: _answerFocusNode,
             autofocus: true,
+            keyboardType: TextInputType.text,
+            textCapitalization: TextCapitalization.words,
             textAlign: TextAlign.center,
             decoration: InputDecoration(errorText: _error, hintText: 'Răspunsul tău'),
             onSubmitted: (_) => _submitSecurityAnswerSetup(),
@@ -202,8 +212,10 @@ class _LockScreenState extends State<LockScreen> {
             const SizedBox(height: 12),
             TextField(
               controller: _answerController,
-              focusNode: _fieldFocusNode,
+              focusNode: _answerFocusNode,
               autofocus: true,
+              keyboardType: TextInputType.text,
+              textCapitalization: TextCapitalization.words,
               textAlign: TextAlign.center,
               decoration: InputDecoration(errorText: _error, hintText: 'Răspunsul tău'),
               onSubmitted: (_) => _submitForgotAnswer(provider),
@@ -309,7 +321,7 @@ class _LockScreenState extends State<LockScreen> {
         _stage = _Stage.setupSecurity;
         _error = null;
       });
-      _refocusField();
+      _refocusAnswerField();
     }
   }
 
@@ -341,7 +353,7 @@ class _LockScreenState extends State<LockScreen> {
     final answer = _answerController.text.trim();
     if (!provider.verifySecurityAnswer(answer)) {
       setState(() => _error = 'Răspuns incorect');
-      _refocusField();
+      _refocusAnswerField();
       return;
     }
     await provider.removePin();
