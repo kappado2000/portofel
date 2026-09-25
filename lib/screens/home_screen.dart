@@ -91,6 +91,14 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           IconButton(
+            icon: const Icon(Icons.swap_horiz),
+            tooltip: 'Transfer / Schimb valutar',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const AddTransactionScreen(initialTab: 2)),
+            ),
+          ),
+          IconButton(
             icon: const Icon(Icons.settings_outlined),
             tooltip: 'Setări',
             onPressed: () => Navigator.push(
@@ -210,18 +218,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
               ],
-            ),
-            const SizedBox(height: 8),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const AddTransactionScreen(initialTab: 2)),
-                ),
-                icon: const Icon(Icons.swap_horiz),
-                label: const Text('Transfer / Schimb valutar'),
-              ),
             ),
             const SizedBox(height: 24),
             Row(
