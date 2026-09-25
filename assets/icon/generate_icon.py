@@ -58,7 +58,7 @@ cx, cy = SIZE / 2, SIZE / 2
 # ---- Wallet shadow ----
 shadow = Image.new("RGBA", (SIZE, SIZE), (0, 0, 0, 0))
 sd = ImageDraw.Draw(shadow)
-wallet_w, wallet_h = SIZE * 0.66, SIZE * 0.48
+wallet_w, wallet_h = SIZE * 0.74, SIZE * 0.54
 wx0, wy0 = cx - wallet_w / 2, cy - wallet_h / 2 + SIZE * 0.05
 sd.rounded_rectangle(
     [wx0 + SIZE * 0.02, wy0 + SIZE * 0.035, wx0 + wallet_w + SIZE * 0.02, wy0 + wallet_h + SIZE * 0.035],

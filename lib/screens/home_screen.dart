@@ -55,13 +55,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     final filterSubtotal = visibleAccounts.fold<double>(0, (sum, a) => sum + a.balance);
 
-    // Cardul "Total estimat" folosește intenționat culorile temei opuse
-    // (Dark când ești pe Luminos, și invers) — cerut explicit.
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final totalCardScheme = ColorScheme.fromSeed(
-      seedColor: Colors.teal,
-      brightness: isDark ? Brightness.light : Brightness.dark,
-    );
+    final totalCardScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
       appBar: AppBar(
