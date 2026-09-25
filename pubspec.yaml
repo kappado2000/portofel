@@ -43,7 +43,7 @@ dependencies:
   printing: ^5.13.4
   share_plus: ^10.1.4
   path_provider: ^2.1.5
-  xml: ^7.0.1
+  excel: ^4.0.6
   crypto: ^3.0.6
   local_auth: ^3.0.2
 

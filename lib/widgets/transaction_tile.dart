@@ -1,18 +1,19 @@
 import 'package:flutter/material.dart';
 import '../models/money_transaction.dart';
 import '../providers/money_provider.dart';
+import '../screens/add_transaction_screen.dart';
 import '../utils/formatters.dart';
 
 class TransactionTile extends StatelessWidget {
   final MoneyTransaction tx;
   final MoneyProvider provider;
-  final VoidCallback? onDelete;
+  final int index;
 
   const TransactionTile({
     super.key,
     required this.tx,
     required this.provider,
-    this.onDelete,
+    required this.index,
   });
 
   @override
@@ -20,7 +21,6 @@ class TransactionTile extends StatelessWidget {
     final from = provider.accountById(tx.fromAccountId);
     final to = tx.toAccountId != null ? provider.accountById(tx.toAccountId!) : null;
 
-    IconData icon;
     Color color;
     String title;
     String subtitle;
@@ -28,21 +28,18 @@ class TransactionTile extends StatelessWidget {
 
     switch (tx.type) {
       case TxType.income:
-        icon = Icons.arrow_downward;
         color = Colors.green;
         title = tx.note.isNotEmpty ? tx.note : (tx.category.isEmpty ? 'Venit' : tx.category);
         subtitle = '${dateTimeFormat.format(tx.date)}${tx.category.isNotEmpty ? ' · ${tx.category}' : ''}';
         amountText = '+${from != null ? formatAmount(tx.amount, from.currency) : tx.amount}';
         break;
       case TxType.expense:
-        icon = Icons.arrow_upward;
         color = Colors.red;
-        title = tx.note.isNotEmpty ? tx.note : (tx.category.isEmpty ? 'Cheltuială' : tx.category);
+        title = tx.note.isNotEmpty ? tx.note : (tx.category.isEmpty ? 'Plată' : tx.category);
         subtitle = '${dateTimeFormat.format(tx.date)}${tx.category.isNotEmpty ? ' · ${tx.category}' : ''}';
         amountText = '-${from != null ? formatAmount(tx.amount, from.currency) : tx.amount}';
         break;
       case TxType.transfer:
-        icon = Icons.swap_horiz;
         color = Colors.blueGrey;
         title = tx.note.isNotEmpty ? tx.note : '${from?.name ?? '?'} → ${to?.name ?? '?'}';
         subtitle = '${dateTimeFormat.format(tx.date)} · ${from?.name ?? '?'} → ${to?.name ?? '?'}';
@@ -50,27 +47,51 @@ class TransactionTile extends StatelessWidget {
         break;
     }
 
-    return ListTile(
-      leading: CircleAvatar(
-        backgroundColor: color.withValues(alpha: 0.15),
-        child: Icon(icon, color: color),
+    return Dismissible(
+      key: ValueKey(tx.id),
+      direction: DismissDirection.endToStart,
+      confirmDismiss: (_) => _confirmDelete(context),
+      onDismissed: (_) => provider.deleteTransaction(tx.id),
+      background: Container(
+        color: Colors.red,
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        child: const Icon(Icons.delete, color: Colors.white),
       ),
-      title: Text(title),
-      subtitle: Text(subtitle),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            amountText,
+      child: ListTile(
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => AddTransactionScreen(editing: tx)),
+        ),
+        leading: CircleAvatar(
+          backgroundColor: color.withValues(alpha: 0.15),
+          child: Text(
+            '$index',
             style: TextStyle(color: color, fontWeight: FontWeight.bold),
           ),
-          if (onDelete != null)
-            IconButton(
-              icon: const Icon(Icons.delete_outline, size: 20),
-              onPressed: onDelete,
-            ),
+        ),
+        title: Text(title),
+        subtitle: Text(subtitle),
+        trailing: Text(
+          amountText,
+          style: TextStyle(color: color, fontWeight: FontWeight.bold),
+        ),
+      ),
+    );
+  }
+
+  Future<bool> _confirmDelete(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Șterge tranzacția?'),
+        content: const Text('Soldul contului va fi actualizat corespunzător.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Anulează')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Șterge')),
         ],
       ),
     );
+    return confirmed ?? false;
   }
 }

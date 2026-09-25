@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../providers/money_provider.dart';
 import '../services/biometric_service.dart';
+import '../utils/formatters.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -75,16 +76,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const Divider(height: 40),
           Text('Totaluri estimate', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
-          Text('Total echivalent în RON: ${provider.totalInRon().toStringAsFixed(2)} lei'),
+          Text('Total echivalent în RON: ${formatNumber(provider.totalInRon())} lei'),
           const SizedBox(height: 4),
-          Text('Total echivalent în EUR: ${provider.totalInEur().toStringAsFixed(2)} €'),
+          Text('Total echivalent în EUR: ${formatNumber(provider.totalInEur())} €'),
           const Divider(height: 40),
           Text('Aspect', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 12),
           SegmentedButton<ThemeMode>(
             segments: const [
               ButtonSegment(value: ThemeMode.light, icon: Icon(Icons.light_mode), label: Text('Luminos')),
-              ButtonSegment(value: ThemeMode.dark, icon: Icon(Icons.dark_mode), label: Text('Întunecat')),
+              ButtonSegment(value: ThemeMode.dark, icon: Icon(Icons.dark_mode), label: Text('Dark')),
               ButtonSegment(value: ThemeMode.system, icon: Icon(Icons.brightness_auto), label: Text('Automat')),
             ],
             selected: {provider.themeMode},

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/account.dart';
 import '../providers/money_provider.dart';
+import '../utils/formatters.dart';
 import '../widgets/account_card.dart';
 import '../widgets/transaction_tile.dart';
 
@@ -63,12 +64,16 @@ class FamilyAccountsScreen extends StatelessWidget {
                         Text('Total familie', style: Theme.of(context).textTheme.titleSmall),
                         const SizedBox(height: 6),
                         Text(
-                          '${provider.totalInRon(group: AccountGroup.family).toStringAsFixed(2)} lei  ≈  '
-                          '${provider.totalInEur(group: AccountGroup.family).toStringAsFixed(2)} €',
+                          '${formatNumber(provider.totalInEur(group: AccountGroup.family))} €',
                           style: Theme.of(context)
                               .textTheme
                               .headlineSmall
                               ?.copyWith(fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '≈ ${formatNumber(provider.totalInRon(group: AccountGroup.family))} lei',
+                          style: Theme.of(context).textTheme.bodySmall,
                         ),
                       ],
                     ),
@@ -88,7 +93,9 @@ class FamilyAccountsScreen extends StatelessWidget {
                     child: Text('Nicio tranzacție încă'),
                   )
                 else
-                  ...recentTx.map((tx) => TransactionTile(tx: tx, provider: provider)),
+                  ...recentTx.indexed.map(
+                    (e) => TransactionTile(tx: e.$2, provider: provider, index: e.$1 + 1),
+                  ),
               ],
             ),
     );

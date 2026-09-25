@@ -28,6 +28,16 @@ class MoneyProvider extends ChangeNotifier {
   List<Account> get familyAccounts =>
       List.unmodifiable(_accounts.where((a) => a.group == AccountGroup.family));
 
+  /// Contul preselectat implicit în formulare: Cash Euro, dacă există,
+  /// altfel primul cont disponibil.
+  Account? get defaultAccount {
+    if (_accounts.isEmpty) return null;
+    for (final a in _accounts) {
+      if (a.currency == AccountCurrency.eur && a.kind == AccountKind.cash) return a;
+    }
+    return _accounts.first;
+  }
+
   List<MoneyTransaction> get transactions {
     final list = List<MoneyTransaction>.from(_transactions);
     list.sort((a, b) => b.date.compareTo(a.date));
@@ -303,10 +313,8 @@ class MoneyProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> deleteTransaction(String id) async {
-    final tx = _transactions.firstWhere((t) => t.id == id);
+  void _reverseEffect(MoneyTransaction tx) {
     final from = accountById(tx.fromAccountId);
-
     switch (tx.type) {
       case TxType.income:
         from?.balance -= tx.amount;
@@ -322,9 +330,124 @@ class MoneyProvider extends ChangeNotifier {
         break;
     }
     if (from != null) _persistAccount(from);
+  }
 
+  Future<void> deleteTransaction(String id) async {
+    final tx = _transactions.firstWhere((t) => t.id == id);
+    _reverseEffect(tx);
     _transactions.removeWhere((t) => t.id == id);
     _transactionsBox.delete(id);
+    notifyListeners();
+  }
+
+  Future<void> updateIncome({
+    required String transactionId,
+    required String accountId,
+    required double amount,
+    required String category,
+    String note = '',
+    DateTime? date,
+  }) async {
+    final old = _transactions.firstWhere((t) => t.id == transactionId);
+    _reverseEffect(old);
+
+    final account = accountById(accountId);
+    if (account == null) return;
+    account.balance += amount;
+    _persistAccount(account);
+
+    final updated = MoneyTransaction(
+      id: old.id,
+      type: TxType.income,
+      date: date ?? old.date,
+      fromAccountId: accountId,
+      amount: amount,
+      category: category,
+      note: note,
+    );
+    _replaceTransaction(updated);
+  }
+
+  Future<void> updateExpense({
+    required String transactionId,
+    required String accountId,
+    required double amount,
+    required String category,
+    String note = '',
+    DateTime? date,
+  }) async {
+    final old = _transactions.firstWhere((t) => t.id == transactionId);
+    _reverseEffect(old);
+
+    final account = accountById(accountId);
+    if (account == null) return;
+    account.balance -= amount;
+    _persistAccount(account);
+
+    final updated = MoneyTransaction(
+      id: old.id,
+      type: TxType.expense,
+      date: date ?? old.date,
+      fromAccountId: accountId,
+      amount: amount,
+      category: category,
+      note: note,
+    );
+    _replaceTransaction(updated);
+  }
+
+  Future<void> updateTransfer({
+    required String transactionId,
+    required String fromAccountId,
+    required String toAccountId,
+    required double amount,
+    double? exchangeRate,
+    String note = '',
+    DateTime? date,
+  }) async {
+    final old = _transactions.firstWhere((t) => t.id == transactionId);
+    _reverseEffect(old);
+
+    final from = accountById(fromAccountId);
+    final to = accountById(toAccountId);
+    if (from == null || to == null) return;
+
+    double converted = amount;
+    double? usedRate;
+    if (from.currency != to.currency) {
+      usedRate = exchangeRate ?? defaultExchangeRate;
+      if (from.currency == AccountCurrency.eur && to.currency == AccountCurrency.ron) {
+        converted = amount * usedRate;
+      } else if (from.currency == AccountCurrency.ron && to.currency == AccountCurrency.eur) {
+        converted = amount / usedRate;
+      }
+    }
+
+    from.balance -= amount;
+    to.balance += converted;
+    _persistAccount(from);
+    _persistAccount(to);
+
+    final updated = MoneyTransaction(
+      id: old.id,
+      type: TxType.transfer,
+      date: date ?? old.date,
+      fromAccountId: fromAccountId,
+      toAccountId: toAccountId,
+      amount: amount,
+      convertedAmount: converted,
+      exchangeRate: usedRate,
+      category: 'Transfer',
+      note: note,
+    );
+    _replaceTransaction(updated);
+  }
+
+  void _replaceTransaction(MoneyTransaction updated) {
+    final idx = _transactions.indexWhere((t) => t.id == updated.id);
+    if (idx == -1) return;
+    _transactions[idx] = updated;
+    _transactionsBox.put(updated.id, updated.toMap());
     notifyListeners();
   }
 

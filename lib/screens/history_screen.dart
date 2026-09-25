@@ -3,8 +3,8 @@ import 'package:provider/provider.dart';
 import '../models/account.dart';
 import '../models/money_transaction.dart';
 import '../providers/money_provider.dart';
+import '../services/excel_export_service.dart';
 import '../services/pdf_export_service.dart';
-import '../services/xml_export_service.dart';
 import '../utils/formatters.dart';
 import '../widgets/transaction_tile.dart';
 
@@ -19,6 +19,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
   TxType? _filterType;
   String? _filterAccountId;
   DateTimeRange? _dateRange;
+  final _exportButtonKey = GlobalKey();
 
   @override
   Widget build(BuildContext context) {
@@ -56,14 +57,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
         title: const Text('Istoric tranzacții'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.picture_as_pdf_outlined),
-            tooltip: 'Exportă PDF',
-            onPressed: txs.isEmpty ? null : () => _exportPdf(context, provider, txs),
-          ),
-          IconButton(
-            icon: const Icon(Icons.code_outlined),
-            tooltip: 'Exportă XML',
-            onPressed: txs.isEmpty ? null : () => _exportXml(context, provider, txs),
+            key: _exportButtonKey,
+            icon: const Icon(Icons.ios_share),
+            tooltip: 'Exportă documente',
+            onPressed: () => _showExportMenu(context, provider, txs),
           ),
         ],
       ),
@@ -80,7 +77,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     items: const [
                       DropdownMenuItem(value: null, child: Text('Toate')),
                       DropdownMenuItem(value: TxType.income, child: Text('Venituri')),
-                      DropdownMenuItem(value: TxType.expense, child: Text('Cheltuieli')),
+                      DropdownMenuItem(value: TxType.expense, child: Text('Plăți')),
                       DropdownMenuItem(value: TxType.transfer, child: Text('Transferuri')),
                     ],
                     onChanged: (v) => setState(() => _filterType = v),
@@ -156,11 +153,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     itemCount: txs.length,
                     itemBuilder: (context, index) {
                       final tx = txs[index];
-                      return TransactionTile(
-                        tx: tx,
-                        provider: provider,
-                        onDelete: () => _confirmDelete(context, provider, tx.id),
-                      );
+                      return TransactionTile(tx: tx, provider: provider, index: index + 1);
                     },
                   ),
           ),
@@ -179,49 +172,74 @@ class _HistoryScreenState extends State<HistoryScreen> {
     if (picked != null) setState(() => _dateRange = picked);
   }
 
-  Future<void> _confirmDelete(BuildContext context, MoneyProvider provider, String id) async {
-    final confirmed = await showDialog<bool>(
+  Rect? _exportButtonRect() {
+    final box = _exportButtonKey.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null) return null;
+    return box.localToGlobal(Offset.zero) & box.size;
+  }
+
+  Future<void> _showExportMenu(
+    BuildContext context,
+    MoneyProvider provider,
+    List<MoneyTransaction> txs,
+  ) async {
+    if (txs.isEmpty) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Nu există tranzacții de exportat')));
+      return;
+    }
+
+    final choice = await showModalBottomSheet<String>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Șterge tranzacția?'),
-        content: const Text('Soldul contului va fi actualizat corespunzător.'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Anulează')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Șterge')),
-        ],
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.print_outlined),
+              title: const Text('Imprimare'),
+              onTap: () => Navigator.pop(ctx, 'print'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.picture_as_pdf_outlined),
+              title: const Text('Exportă PDF'),
+              onTap: () => Navigator.pop(ctx, 'pdf'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.grid_on_outlined),
+              title: const Text('Exportă Excel'),
+              onTap: () => Navigator.pop(ctx, 'excel'),
+            ),
+          ],
+        ),
       ),
     );
-    if (confirmed == true) {
-      await provider.deleteTransaction(id);
-    }
-  }
+    if (choice == null || !context.mounted) return;
 
-  Future<void> _exportPdf(
-    BuildContext context,
-    MoneyProvider provider,
-    List<MoneyTransaction> txs,
-  ) async {
     try {
-      await PdfExportService.exportTransactions(transactions: txs, provider: provider);
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Export PDF eșuat: $e')));
+      switch (choice) {
+        case 'print':
+          await PdfExportService.printTransactions(transactions: txs, provider: provider);
+          break;
+        case 'pdf':
+          await PdfExportService.sharePdf(
+            transactions: txs,
+            provider: provider,
+            sharePositionOrigin: _exportButtonRect(),
+          );
+          break;
+        case 'excel':
+          await ExcelExportService.exportTransactions(
+            transactions: txs,
+            provider: provider,
+            sharePositionOrigin: _exportButtonRect(),
+          );
+          break;
       }
-    }
-  }
-
-  Future<void> _exportXml(
-    BuildContext context,
-    MoneyProvider provider,
-    List<MoneyTransaction> txs,
-  ) async {
-    try {
-      await XmlExportService.exportTransactions(transactions: txs, provider: provider);
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Export XML eșuat: $e')));
+            .showSnackBar(SnackBar(content: Text('Export eșuat: $e')));
       }
     }
   }
@@ -240,23 +258,29 @@ class _TotalChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
+        color: color,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: Theme.of(context).textTheme.labelSmall),
+          Text(
+            label,
+            style: Theme.of(context)
+                .textTheme
+                .labelSmall
+                ?.copyWith(color: Colors.white.withValues(alpha: 0.85)),
+          ),
           if (entries.isEmpty)
             Text(
               formatAmount(0, AccountCurrency.ron),
-              style: TextStyle(color: color, fontWeight: FontWeight.bold),
+              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
             )
           else
             ...entries.map(
               (e) => Text(
                 formatAmount(e.value, e.key),
-                style: TextStyle(color: color, fontWeight: FontWeight.bold),
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
               ),
             ),
         ],

@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/account.dart';
+import '../models/money_transaction.dart';
 import '../providers/money_provider.dart';
 import '../utils/categories.dart';
 import '../utils/formatters.dart';
 
 class AddTransactionScreen extends StatefulWidget {
   final int initialTab;
+  final MoneyTransaction? editing;
 
-  const AddTransactionScreen({super.key, this.initialTab = 0});
+  const AddTransactionScreen({super.key, this.initialTab = 0, this.editing});
 
   @override
   State<AddTransactionScreen> createState() => _AddTransactionScreenState();
@@ -21,7 +23,14 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this, initialIndex: widget.initialTab);
+    final initialIndex = widget.editing != null
+        ? (widget.editing!.type == TxType.income
+            ? 0
+            : widget.editing!.type == TxType.expense
+                ? 1
+                : 2)
+        : widget.initialTab;
+    _tabController = TabController(length: 3, vsync: this, initialIndex: initialIndex);
   }
 
   @override
@@ -32,6 +41,21 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
 
   @override
   Widget build(BuildContext context) {
+    final editing = widget.editing;
+
+    if (editing != null) {
+      // Editing an existing transaction: show only the matching form, no tabs.
+      final Widget form = switch (editing.type) {
+        TxType.income => _IncomeExpenseForm(isIncome: true, editing: editing),
+        TxType.expense => _IncomeExpenseForm(isIncome: false, editing: editing),
+        TxType.transfer => _TransferForm(editing: editing),
+      };
+      return Scaffold(
+        appBar: AppBar(title: const Text('Editează tranzacție')),
+        body: form,
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Adaugă tranzacție'),
@@ -39,7 +63,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
           controller: _tabController,
           tabs: const [
             Tab(text: 'Venit'),
-            Tab(text: 'Cheltuială'),
+            Tab(text: 'Plată'),
             Tab(text: 'Transfer / Schimb'),
           ],
         ),
@@ -58,7 +82,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
 
 class _IncomeExpenseForm extends StatefulWidget {
   final bool isIncome;
-  const _IncomeExpenseForm({required this.isIncome});
+  final MoneyTransaction? editing;
+  const _IncomeExpenseForm({required this.isIncome, this.editing});
 
   @override
   State<_IncomeExpenseForm> createState() => _IncomeExpenseFormState();
@@ -66,18 +91,32 @@ class _IncomeExpenseForm extends StatefulWidget {
 
 class _IncomeExpenseFormState extends State<_IncomeExpenseForm> {
   final _formKey = GlobalKey<FormState>();
-  final _amountController = TextEditingController();
-  final _noteController = TextEditingController();
+  late final _amountController = TextEditingController(
+    text: widget.editing != null ? _plainNumber(widget.editing!.amount) : '',
+  );
+  late final _noteController = TextEditingController(text: widget.editing?.note ?? '');
   String? _accountId;
   String? _category;
-  DateTime _date = DateTime.now();
+  late DateTime _date = widget.editing?.date ?? DateTime.now();
+
+  bool get _isEditing => widget.editing != null;
+
+  static String _plainNumber(double v) =>
+      v == v.roundToDouble() ? v.toStringAsFixed(0) : v.toString();
+
+  @override
+  void initState() {
+    super.initState();
+    _accountId = widget.editing?.fromAccountId;
+    _category = widget.editing?.category;
+  }
 
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<MoneyProvider>();
     final accounts = provider.accounts;
     final categories = widget.isIncome ? incomeCategories : expenseCategories;
-    _accountId ??= accounts.isNotEmpty ? accounts.first.id : null;
+    _accountId ??= provider.defaultAccount?.id;
 
     return Form(
       key: _formKey,
@@ -134,15 +173,27 @@ class _IncomeExpenseFormState extends State<_IncomeExpenseForm> {
             contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.event),
             title: Text(dateTimeFormat.format(_date)),
-            subtitle: const Text('Data operațiunii (completată automat, poți schimba)'),
+            subtitle: Text(_isEditing
+                ? 'Data operațiunii'
+                : 'Data operațiunii (completată automat, poți schimba)'),
             trailing: const Icon(Icons.edit_outlined, size: 18),
             onTap: _pickDateTime,
           ),
           const SizedBox(height: 12),
           FilledButton(
             onPressed: accounts.isEmpty ? null : _submit,
-            child: Text(widget.isIncome ? 'Adaugă venit' : 'Adaugă cheltuială'),
+            child: Text(_isEditing
+                ? 'Salvează modificările'
+                : (widget.isIncome ? 'Adaugă venit' : 'Adaugă plată')),
           ),
+          if (_isEditing) ...[
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: _delete,
+              icon: const Icon(Icons.delete_outline),
+              label: const Text('Șterge tranzacția'),
+            ),
+          ],
         ],
       ),
     );
@@ -176,6 +227,30 @@ class _IncomeExpenseFormState extends State<_IncomeExpenseForm> {
     if (!_formKey.currentState!.validate() || _accountId == null) return;
     final amount = double.parse(_amountController.text.replaceAll(',', '.'));
     final provider = context.read<MoneyProvider>();
+
+    if (_isEditing) {
+      if (widget.isIncome) {
+        await provider.updateIncome(
+          transactionId: widget.editing!.id,
+          accountId: _accountId!,
+          amount: amount,
+          category: _category ?? '',
+          note: _noteController.text,
+          date: _date,
+        );
+      } else {
+        await provider.updateExpense(
+          transactionId: widget.editing!.id,
+          accountId: _accountId!,
+          amount: amount,
+          category: _category ?? '',
+          note: _noteController.text,
+          date: _date,
+        );
+      }
+      if (mounted) Navigator.pop(context);
+      return;
+    }
 
     if (widget.isIncome) {
       await provider.addIncome(
@@ -215,7 +290,7 @@ class _IncomeExpenseFormState extends State<_IncomeExpenseForm> {
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(widget.isIncome ? 'Venit adăugat' : 'Cheltuială adăugată')),
+        SnackBar(content: Text(widget.isIncome ? 'Venit adăugat' : 'Plată adăugată')),
       );
       _amountController.clear();
       _noteController.clear();
@@ -225,10 +300,29 @@ class _IncomeExpenseFormState extends State<_IncomeExpenseForm> {
       });
     }
   }
+
+  Future<void> _delete() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Șterge tranzacția?'),
+        content: const Text('Soldul contului va fi actualizat corespunzător.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Anulează')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Șterge')),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) {
+      await context.read<MoneyProvider>().deleteTransaction(widget.editing!.id);
+      if (mounted) Navigator.pop(context);
+    }
+  }
 }
 
 class _TransferForm extends StatefulWidget {
-  const _TransferForm();
+  final MoneyTransaction? editing;
+  const _TransferForm({this.editing});
 
   @override
   State<_TransferForm> createState() => _TransferFormState();
@@ -236,19 +330,39 @@ class _TransferForm extends StatefulWidget {
 
 class _TransferFormState extends State<_TransferForm> {
   final _formKey = GlobalKey<FormState>();
-  final _amountController = TextEditingController();
-  final _rateController = TextEditingController();
-  final _noteController = TextEditingController();
+  late final _amountController = TextEditingController(
+    text: widget.editing != null ? _plainNumber(widget.editing!.amount) : '',
+  );
+  late final _rateController = TextEditingController(
+    text: widget.editing?.exchangeRate != null
+        ? widget.editing!.exchangeRate!.toStringAsFixed(4)
+        : '',
+  );
+  late final _noteController = TextEditingController(text: widget.editing?.note ?? '');
   String? _fromId;
   String? _toId;
-  DateTime _date = DateTime.now();
+  late DateTime _date = widget.editing?.date ?? DateTime.now();
+
+  bool get _isEditing => widget.editing != null;
+
+  static String _plainNumber(double v) =>
+      v == v.roundToDouble() ? v.toStringAsFixed(0) : v.toString();
+
+  @override
+  void initState() {
+    super.initState();
+    _fromId = widget.editing?.fromAccountId;
+    _toId = widget.editing?.toAccountId;
+  }
 
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<MoneyProvider>();
     final accounts = provider.accounts;
-    _fromId ??= accounts.isNotEmpty ? accounts.first.id : null;
-    _toId ??= accounts.length > 1 ? accounts[1].id : null;
+    _fromId ??= provider.defaultAccount?.id;
+    _toId ??= accounts.length > 1
+        ? accounts.firstWhere((a) => a.id != _fromId, orElse: () => accounts.first).id
+        : null;
 
     final fromAccount = _fromId != null ? provider.accountById(_fromId!) : null;
     final toAccount = _toId != null ? provider.accountById(_toId!) : null;
@@ -341,15 +455,25 @@ class _TransferFormState extends State<_TransferForm> {
             contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.event),
             title: Text(dateTimeFormat.format(_date)),
-            subtitle: const Text('Data operațiunii (completată automat, poți schimba)'),
+            subtitle: Text(_isEditing
+                ? 'Data operațiunii'
+                : 'Data operațiunii (completată automat, poți schimba)'),
             trailing: const Icon(Icons.edit_outlined, size: 18),
             onTap: _pickDateTime,
           ),
           const SizedBox(height: 12),
           FilledButton(
             onPressed: (accounts.length < 2) ? null : _submit,
-            child: const Text('Confirmă transferul'),
+            child: Text(_isEditing ? 'Salvează modificările' : 'Confirmă transferul'),
           ),
+          if (_isEditing) ...[
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: _delete,
+              icon: const Icon(Icons.delete_outline),
+              label: const Text('Șterge tranzacția'),
+            ),
+          ],
         ],
       ),
     );
@@ -400,6 +524,21 @@ class _TransferFormState extends State<_TransferForm> {
         : null;
 
     final provider = context.read<MoneyProvider>();
+
+    if (_isEditing) {
+      await provider.updateTransfer(
+        transactionId: widget.editing!.id,
+        fromAccountId: _fromId!,
+        toAccountId: _toId!,
+        amount: amount,
+        exchangeRate: rate,
+        note: _noteController.text,
+        date: _date,
+      );
+      if (mounted) Navigator.pop(context);
+      return;
+    }
+
     final fromAccount = provider.accountById(_fromId!);
     if (fromAccount != null && fromAccount.balance < amount) {
       final proceed = await showDialog<bool>(
@@ -435,6 +574,24 @@ class _TransferFormState extends State<_TransferForm> {
       _amountController.clear();
       _noteController.clear();
       setState(() => _date = DateTime.now());
+    }
+  }
+
+  Future<void> _delete() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Șterge tranzacția?'),
+        content: const Text('Soldul conturilor va fi actualizat corespunzător.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Anulează')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Șterge')),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) {
+      await context.read<MoneyProvider>().deleteTransaction(widget.editing!.id);
+      if (mounted) Navigator.pop(context);
     }
   }
 }

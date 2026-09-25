@@ -106,11 +106,16 @@ class _HomeScreenState extends State<HomeScreen> {
                     Text('Total estimat', style: Theme.of(context).textTheme.titleSmall),
                     const SizedBox(height: 6),
                     Text(
-                      '${provider.totalInRon().toStringAsFixed(2)} lei  ≈  ${provider.totalInEur().toStringAsFixed(2)} €',
+                      '${formatNumber(provider.totalInEur())} €',
                       style: Theme.of(context)
                           .textTheme
                           .headlineSmall
                           ?.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '≈ ${formatNumber(provider.totalInRon())} lei',
+                      style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ],
                 ),
@@ -173,7 +178,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       MaterialPageRoute(builder: (_) => const AddTransactionScreen(initialTab: 1)),
                     ),
                     icon: const Icon(Icons.remove),
-                    label: const Text('Cheltuială'),
+                    label: const Text('Plată'),
                   ),
                 ),
               ],
@@ -209,7 +214,7 @@ class _HomeScreenState extends State<HomeScreen> {
               segments: const [
                 ButtonSegment(value: _TxFilter.all, label: Text('Toate')),
                 ButtonSegment(value: _TxFilter.income, label: Text('Venituri')),
-                ButtonSegment(value: _TxFilter.expense, label: Text('Cheltuieli')),
+                ButtonSegment(value: _TxFilter.expense, label: Text('Plăți')),
               ],
               selected: {_txFilter},
               onSelectionChanged: (s) => setState(() => _txFilter = s.first),
@@ -221,7 +226,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: Center(child: Text('Nicio tranzacție încă')),
               )
             else
-              ...recentTx.map((tx) => TransactionTile(tx: tx, provider: provider)),
+              ...recentTx.indexed.map(
+                (e) => TransactionTile(tx: e.$2, provider: provider, index: e.$1 + 1),
+              ),
           ],
         ),
       ),

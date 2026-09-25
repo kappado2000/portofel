@@ -184,7 +184,7 @@ class AccountsScreen extends StatelessWidget {
   Future<void> _addAccount(BuildContext context, MoneyProvider provider) async {
     final nameController = TextEditingController();
     final balanceController = TextEditingController(text: '0');
-    AccountCurrency currency = AccountCurrency.ron;
+    AccountCurrency currency = AccountCurrency.eur;
     AccountKind kind = AccountKind.cash;
     AccountGroup group = AccountGroup.personal;
 

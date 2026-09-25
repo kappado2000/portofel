@@ -15,5 +15,5 @@ const List<String> expenseCategories = [
   'Sănătate',
   'Divertisment',
   'Cumpărături',
-  'Alte cheltuieli',
+  'Alte plăți',
 ];

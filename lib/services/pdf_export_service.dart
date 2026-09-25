@@ -1,4 +1,5 @@
 import 'package:flutter/services.dart' show rootBundle;
+import 'package:flutter/widgets.dart' show Rect;
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
@@ -7,7 +8,7 @@ import '../providers/money_provider.dart';
 import '../utils/formatters.dart';
 
 class PdfExportService {
-  static Future<void> exportTransactions({
+  static Future<pw.Document> _buildDocument({
     required List<MoneyTransaction> transactions,
     required MoneyProvider provider,
     String title = 'Portofel - Istoric tranzacții',
@@ -44,7 +45,31 @@ class PdfExportService {
       ),
     );
 
+    return doc;
+  }
+
+  /// Deschide fluxul nativ de imprimare (alegere imprimantă / AirPrint).
+  static Future<void> printTransactions({
+    required List<MoneyTransaction> transactions,
+    required MoneyProvider provider,
+  }) async {
+    final doc = await _buildDocument(transactions: transactions, provider: provider);
     await Printing.layoutPdf(onLayout: (_) => doc.save());
+  }
+
+  /// Partajează/salvează fișierul PDF (meniul de share al sistemului).
+  static Future<void> sharePdf({
+    required List<MoneyTransaction> transactions,
+    required MoneyProvider provider,
+    Rect? sharePositionOrigin,
+  }) async {
+    final doc = await _buildDocument(transactions: transactions, provider: provider);
+    final bytes = await doc.save();
+    await Printing.sharePdf(
+      bytes: bytes,
+      filename: 'portofel_export_${DateTime.now().millisecondsSinceEpoch}.pdf',
+      bounds: sharePositionOrigin,
+    );
   }
 
   static pw.Widget _accountsSummary(MoneyProvider provider) {
@@ -111,7 +136,7 @@ class PdfExportService {
         amountLabel = '+${from != null ? formatAmount(tx.amount, from.currency) : tx.amount}';
         break;
       case TxType.expense:
-        typeLabel = 'Cheltuială';
+        typeLabel = 'Plată';
         accountLabel = from?.name ?? '?';
         amountLabel = '-${from != null ? formatAmount(tx.amount, from.currency) : tx.amount}';
         break;
