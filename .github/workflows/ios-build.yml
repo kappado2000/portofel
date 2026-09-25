@@ -1,0 +1,53 @@
+name: iOS unsigned build (for Sideloadly)
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  build:
+    runs-on: macos-latest
+    # Needed to create a release and upload an asset to it (see the last
+    # step) — the default GITHUB_TOKEN is read-only on contents otherwise.
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.0'
+          channel: 'stable'
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build unsigned iOS app
+        # --build-number must change on every install or Sideloadly/iOS treats
+        # the IPA as "already installed" and skips replacing the binary on
+        # the device — pubspec.yaml's own build number never changes between
+        # manual edits, so the workflow's own run number is used instead to
+        # guarantee every dispatch produces a genuinely new, installable
+        # version.
+        run: flutter build ios --release --no-codesign --build-number=${{ github.run_number }}
+
+      - name: Package as unsigned IPA
+        run: |
+          mkdir -p Payload
+          cp -r build/ios/iphoneos/Runner.app Payload/
+          zip -r Portofel-unsigned.ipa Payload
+
+      # A GitHub Release asset, not an Actions artifact: Actions artifact
+      # storage on a private repo is capped and doesn't free up quota
+      # immediately when old artifacts are deleted, while release assets
+      # live in a separate, much larger allowance. Each run makes its own
+      # release (tagged by run number, so reruns/re-dispatches never
+      # collide) — old ones can be deleted from the repo's Releases page
+      # whenever, independent of Actions.
+      - name: Publish the IPA as a release asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "ios-build-${{ github.run_number }}" \
+            Portofel-unsigned.ipa \
+            --title "iOS unsigned build #${{ github.run_number }}" \
+            --notes "Unsigned IPA for Sideloadly, built from ${{ github.sha }}."
