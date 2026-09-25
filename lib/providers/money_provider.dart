@@ -1,24 +1,24 @@
-import 'dart:convert';
-import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:uuid/uuid.dart';
 import '../models/account.dart';
 import '../models/money_transaction.dart';
 
-const _accountsBoxName = 'accounts';
-const _transactionsBoxName = 'transactions';
-const _settingsBoxName = 'settings';
-
+/// Datele financiare (conturi, tranzacții) ale profilului activ. Fiecare
+/// profil are propriile cutii Hive, complet separate de celelalte profiluri
+/// — vezi [loadProfile].
 class MoneyProvider extends ChangeNotifier {
-  late Box _accountsBox;
-  late Box _transactionsBox;
-  late Box _settingsBox;
+  Box? _accountsBox;
+  Box? _transactionsBox;
+  Box? _settingsBox;
+  String? _loadedProfileId;
 
   final _uuid = const Uuid();
 
   List<Account> _accounts = [];
   List<MoneyTransaction> _transactions = [];
+
+  String? get loadedProfileId => _loadedProfileId;
 
   List<Account> get accounts => List.unmodifiable(_accounts);
 
@@ -45,77 +45,10 @@ class MoneyProvider extends ChangeNotifier {
   }
 
   double get defaultExchangeRate =>
-      (_settingsBox.get('eurRonRate') as num?)?.toDouble() ?? 5.0;
+      (_settingsBox?.get('eurRonRate') as num?)?.toDouble() ?? 5.0;
 
   set defaultExchangeRate(double rate) {
-    _settingsBox.put('eurRonRate', rate);
-    notifyListeners();
-  }
-
-  // ---- Parolă de acces (PIN) ----
-
-  bool get hasPin => _settingsBox.get('pinHash') != null;
-
-  String _hashPin(String pin) => sha256.convert(utf8.encode('portofel_salt::$pin')).toString();
-
-  Future<void> setPin(String pin) async {
-    await _settingsBox.put('pinHash', _hashPin(pin));
-    notifyListeners();
-  }
-
-  bool verifyPin(String pin) {
-    final stored = _settingsBox.get('pinHash') as String?;
-    if (stored == null) return true;
-    return stored == _hashPin(pin);
-  }
-
-  Future<void> removePin() async {
-    await _settingsBox.delete('pinHash');
-    await _settingsBox.delete('securityAnswerHash');
-    await _settingsBox.put('biometricEnabled', false);
-    notifyListeners();
-  }
-
-  // ---- Întrebare de securitate (recuperare parolă) ----
-
-  static const securityQuestion = 'Care este numele animalului tău preferat?';
-
-  bool get hasSecurityAnswer => _settingsBox.get('securityAnswerHash') != null;
-
-  String _hashAnswer(String answer) =>
-      sha256.convert(utf8.encode('portofel_salt::${answer.trim().toLowerCase()}')).toString();
-
-  Future<void> setSecurityAnswer(String answer) async {
-    await _settingsBox.put('securityAnswerHash', _hashAnswer(answer));
-    notifyListeners();
-  }
-
-  bool verifySecurityAnswer(String answer) {
-    final stored = _settingsBox.get('securityAnswerHash') as String?;
-    if (stored == null) return false;
-    return stored == _hashAnswer(answer);
-  }
-
-  bool get biometricEnabled => (_settingsBox.get('biometricEnabled') as bool?) ?? false;
-
-  Future<void> setBiometricEnabled(bool enabled) async {
-    await _settingsBox.put('biometricEnabled', enabled);
-    notifyListeners();
-  }
-
-  // ---- Temă ----
-
-  ThemeMode get themeMode {
-    final stored = _settingsBox.get('themeMode') as String?;
-    return switch (stored) {
-      'light' => ThemeMode.light,
-      'dark' => ThemeMode.dark,
-      _ => ThemeMode.system,
-    };
-  }
-
-  Future<void> setThemeMode(ThemeMode mode) async {
-    await _settingsBox.put('themeMode', mode.name);
+    _settingsBox?.put('eurRonRate', rate);
     notifyListeners();
   }
 
@@ -127,13 +60,23 @@ class MoneyProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> init() async {
-    await Hive.initFlutter();
-    _accountsBox = await Hive.openBox(_accountsBoxName);
-    _transactionsBox = await Hive.openBox(_transactionsBoxName);
-    _settingsBox = await Hive.openBox(_settingsBoxName);
+  /// Încarcă (sau comută la) datele financiare ale profilului dat. Poate fi
+  /// apelat de mai multe ori în viața aplicației, la fiecare schimbare de
+  /// profil — închide cutiile profilului anterior înainte de a deschide
+  /// cutiile noului profil.
+  Future<void> loadProfile(String profileId) async {
+    if (_loadedProfileId == profileId) return;
 
-    if (_accountsBox.isEmpty) {
+    await _accountsBox?.close();
+    await _transactionsBox?.close();
+    await _settingsBox?.close();
+
+    _accountsBox = await Hive.openBox('accounts_$profileId');
+    _transactionsBox = await Hive.openBox('transactions_$profileId');
+    _settingsBox = await Hive.openBox('settings_$profileId');
+    _loadedProfileId = profileId;
+
+    if (_accountsBox!.isEmpty) {
       _seedDefaultAccounts();
     }
 
@@ -147,20 +90,20 @@ class MoneyProvider extends ChangeNotifier {
       Account(id: _uuid.v4(), name: 'Cont', currency: AccountCurrency.ron, kind: AccountKind.bank),
     ];
     for (final a in defaults) {
-      _accountsBox.put(a.id, a.toMap());
+      _accountsBox!.put(a.id, a.toMap());
     }
   }
 
   void _loadFromBoxes() {
-    _accounts = _accountsBox.values.map((m) => Account.fromMap(Map.from(m))).toList();
-    _transactions = _transactionsBox.values
+    _accounts = _accountsBox!.values.map((m) => Account.fromMap(Map.from(m))).toList();
+    _transactions = _transactionsBox!.values
         .map((m) => MoneyTransaction.fromMap(Map.from(m)))
         .toList();
     notifyListeners();
   }
 
   void _persistAccount(Account a) {
-    _accountsBox.put(a.id, a.toMap());
+    _accountsBox?.put(a.id, a.toMap());
   }
 
   // ---- Conturi ----
@@ -207,7 +150,7 @@ class MoneyProvider extends ChangeNotifier {
       throw Exception('Nu poți șterge un cont care are tranzacții. Șterge întâi tranzacțiile.');
     }
     _accounts.removeWhere((a) => a.id == id);
-    _accountsBox.delete(id);
+    _accountsBox?.delete(id);
     notifyListeners();
   }
 
@@ -235,7 +178,7 @@ class MoneyProvider extends ChangeNotifier {
       note: note,
     );
     _transactions.add(tx);
-    _transactionsBox.put(tx.id, tx.toMap());
+    _transactionsBox?.put(tx.id, tx.toMap());
     notifyListeners();
   }
 
@@ -261,7 +204,7 @@ class MoneyProvider extends ChangeNotifier {
       note: note,
     );
     _transactions.add(tx);
-    _transactionsBox.put(tx.id, tx.toMap());
+    _transactionsBox?.put(tx.id, tx.toMap());
     notifyListeners();
   }
 
@@ -309,7 +252,7 @@ class MoneyProvider extends ChangeNotifier {
       note: note,
     );
     _transactions.add(tx);
-    _transactionsBox.put(tx.id, tx.toMap());
+    _transactionsBox?.put(tx.id, tx.toMap());
     notifyListeners();
   }
 
@@ -336,7 +279,7 @@ class MoneyProvider extends ChangeNotifier {
     final tx = _transactions.firstWhere((t) => t.id == id);
     _reverseEffect(tx);
     _transactions.removeWhere((t) => t.id == id);
-    _transactionsBox.delete(id);
+    _transactionsBox?.delete(id);
     notifyListeners();
   }
 
@@ -447,7 +390,7 @@ class MoneyProvider extends ChangeNotifier {
     final idx = _transactions.indexWhere((t) => t.id == updated.id);
     if (idx == -1) return;
     _transactions[idx] = updated;
-    _transactionsBox.put(updated.id, updated.toMap());
+    _transactionsBox?.put(updated.id, updated.toMap());
     notifyListeners();
   }
 

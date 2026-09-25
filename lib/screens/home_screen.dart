@@ -162,6 +162,11 @@ class _HomeScreenState extends State<HomeScreen> {
               children: [
                 Expanded(
                   child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      backgroundColor: Colors.green.withValues(alpha: 0.15),
+                      foregroundColor: Colors.green.shade800,
+                      side: BorderSide(color: Colors.green.shade400),
+                    ),
                     onPressed: () => Navigator.push(
                       context,
                       MaterialPageRoute(builder: (_) => const AddTransactionScreen(initialTab: 0)),
@@ -173,6 +178,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      backgroundColor: Colors.red.withValues(alpha: 0.15),
+                      foregroundColor: Colors.red.shade800,
+                      side: BorderSide(color: Colors.red.shade400),
+                    ),
                     onPressed: () => Navigator.push(
                       context,
                       MaterialPageRoute(builder: (_) => const AddTransactionScreen(initialTab: 1)),

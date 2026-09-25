@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../providers/money_provider.dart';
+import '../providers/profile_provider.dart';
 import '../services/biometric_service.dart';
 import '../utils/formatters.dart';
+
+const _securityQuestion = 'Care este numele animalului tău preferat?';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -35,12 +38,53 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<MoneyProvider>();
+    final profileProvider = context.watch<ProfileProvider>();
+    final profileId = profileProvider.activeProfileId;
+    final profile = profileId != null ? profileProvider.byId(profileId) : null;
+
+    if (profileId == null || profile == null) {
+      // Profilul a fost delogat cât timp acest ecran era deschis deasupra
+      // stivei de navigare — se închide fără să mai construiască UI-ul.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (Navigator.canPop(context)) Navigator.pop(context);
+      });
+      return const SizedBox.shrink();
+    }
 
     return Scaffold(
       appBar: AppBar(title: const Text('Setări')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          Text('Profil', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 8),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.person),
+              title: Text(profile.name),
+              subtitle: const Text('Apasă pentru a redenumi'),
+              onTap: () => _renameProfile(context, profileProvider, profileId, profile.name),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Delogarea te duce la ecranul de selectare a profilului, de unde poți '
+            'reveni la acest profil sau crea unul nou.',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            icon: const Icon(Icons.logout),
+            label: const Text('Delogare'),
+            onPressed: () {
+              // Golește orice ecran deschis deasupra (Setări, Istoric etc.)
+              // înainte de delogare, altfel ar rămâne pe stivă și s-ar
+              // reconstrui cu un profil inexistent.
+              Navigator.of(context).popUntil((route) => route.isFirst);
+              profileProvider.logout();
+            },
+          ),
+          const Divider(height: 40),
           Text('Curs de schimb implicit', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
           Text(
@@ -88,66 +132,80 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ButtonSegment(value: ThemeMode.dark, icon: Icon(Icons.dark_mode), label: Text('Dark')),
               ButtonSegment(value: ThemeMode.system, icon: Icon(Icons.brightness_auto), label: Text('Automat')),
             ],
-            selected: {provider.themeMode},
-            onSelectionChanged: (s) => provider.setThemeMode(s.first),
+            selected: {profileProvider.themeMode},
+            onSelectionChanged: (s) => profileProvider.setThemeMode(s.first),
           ),
           const Divider(height: 40),
           Text('Securitate', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
           Text(
-            'Parola de acces protejează deschiderea aplicației pe acest dispozitiv.',
+            'Parola de acces protejează deschiderea profilului tău pe acest dispozitiv.',
             style: Theme.of(context).textTheme.bodySmall,
           ),
           const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  icon: const Icon(Icons.password),
-                  label: const Text('Schimbă parola'),
-                  onPressed: () => _changePin(context, provider),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: OutlinedButton.icon(
-                  icon: const Icon(Icons.lock_open),
-                  label: const Text('Dezactivează'),
-                  onPressed: () => _removePin(context, provider),
-                ),
-              ),
-            ],
+          OutlinedButton.icon(
+            icon: const Icon(Icons.password),
+            label: const Text('Schimbă parola'),
+            onPressed: () => _changePin(context, profileProvider, profileId),
           ),
-          if (provider.hasPin && _biometricAvailable)
+          if (_biometricAvailable)
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
               title: const Text('Amprentă / Face ID'),
               subtitle: const Text('Deblochează rapid, fără să introduci parola'),
               secondary: const Icon(Icons.fingerprint),
-              value: provider.biometricEnabled,
-              onChanged: (v) => provider.setBiometricEnabled(v),
+              value: profile.biometricEnabled,
+              onChanged: (v) => profileProvider.setBiometricEnabled(profileId, v),
             ),
-          if (provider.hasPin) ...[
-            const SizedBox(height: 8),
-            OutlinedButton.icon(
-              icon: const Icon(Icons.help_outline),
-              label: Text(provider.hasSecurityAnswer
-                  ? 'Schimbă întrebarea de securitate'
-                  : 'Setează întrebarea de securitate'),
-              onPressed: () => _setSecurityAnswer(context, provider),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Folosită pentru a recupera accesul dacă uiți parola.',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-          ],
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            icon: const Icon(Icons.help_outline),
+            label: Text(profileProvider.hasSecurityAnswer(profileId)
+                ? 'Schimbă întrebarea de securitate'
+                : 'Setează întrebarea de securitate'),
+            onPressed: () => _setSecurityAnswer(context, profileProvider, profileId),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Folosită pentru a recupera accesul dacă uiți parola.',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
         ],
       ),
     );
   }
 
-  Future<void> _changePin(BuildContext context, MoneyProvider provider) async {
+  Future<void> _renameProfile(
+    BuildContext context,
+    ProfileProvider provider,
+    String profileId,
+    String currentName,
+  ) async {
+    final controller = TextEditingController(text: currentName);
+    final newName = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Redenumește profilul'),
+        content: TextField(controller: controller, autofocus: true),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Anulează')),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+            child: const Text('Salvează'),
+          ),
+        ],
+      ),
+    );
+    if (newName != null && newName.isNotEmpty) {
+      await provider.renameProfile(profileId, newName);
+    }
+  }
+
+  Future<void> _changePin(
+    BuildContext context,
+    ProfileProvider provider,
+    String profileId,
+  ) async {
     final oldController = TextEditingController();
     final newController = TextEditingController();
     final confirmController = TextEditingController();
@@ -161,8 +219,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              if (provider.hasPin)
-                _pinField(oldController, 'Parola actuală'),
+              _pinField(oldController, 'Parola actuală'),
               _pinField(newController, 'Parola nouă'),
               _pinField(confirmController, 'Confirmă parola nouă'),
               if (error != null)
@@ -176,7 +233,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Anulează')),
             FilledButton(
               onPressed: () async {
-                if (provider.hasPin && !provider.verifyPin(oldController.text)) {
+                if (!provider.verifyPin(profileId, oldController.text)) {
                   setState(() => error = 'Parola actuală este greșită');
                   return;
                 }
@@ -188,7 +245,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   setState(() => error = 'Parolele nu coincid');
                   return;
                 }
-                await provider.setPin(newController.text);
+                await provider.setPin(profileId, newController.text);
                 if (ctx.mounted) Navigator.pop(ctx, true);
               },
               child: const Text('Salvează'),
@@ -217,58 +274,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Future<void> _removePin(BuildContext context, MoneyProvider provider) async {
-    if (!provider.hasPin) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Nu există o parolă setată')));
-      return;
-    }
-    final controller = TextEditingController();
-    String? error;
-
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setState) => AlertDialog(
-          title: const Text('Dezactivează parola'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _pinField(controller, 'Introdu parola actuală'),
-              if (error != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Text(error!, style: const TextStyle(color: Colors.red)),
-                ),
-            ],
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Anulează')),
-            FilledButton(
-              onPressed: () {
-                if (!provider.verifyPin(controller.text)) {
-                  setState(() => error = 'Parolă incorectă');
-                  return;
-                }
-                Navigator.pop(ctx, true);
-              },
-              child: const Text('Dezactivează'),
-            ),
-          ],
-        ),
-      ),
-    );
-
-    if (confirmed == true) {
-      await provider.removePin();
-      if (context.mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('Parola a fost dezactivată')));
-      }
-    }
-  }
-
-  Future<void> _setSecurityAnswer(BuildContext context, MoneyProvider provider) async {
+  Future<void> _setSecurityAnswer(
+    BuildContext context,
+    ProfileProvider provider,
+    String profileId,
+  ) async {
     final pinController = TextEditingController();
     final answerController = TextEditingController();
     String? error;
@@ -284,7 +294,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               _pinField(pinController, 'Parola actuală'),
               const SizedBox(height: 12),
               Text(
-                MoneyProvider.securityQuestion,
+                _securityQuestion,
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
               const SizedBox(height: 8),
@@ -303,7 +313,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Anulează')),
             FilledButton(
               onPressed: () async {
-                if (!provider.verifyPin(pinController.text)) {
+                if (!provider.verifyPin(profileId, pinController.text)) {
                   setState(() => error = 'Parola actuală este greșită');
                   return;
                 }
@@ -311,7 +321,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   setState(() => error = 'Introdu un răspuns');
                   return;
                 }
-                await provider.setSecurityAnswer(answerController.text);
+                await provider.setSecurityAnswer(profileId, answerController.text);
                 if (ctx.mounted) Navigator.pop(ctx, true);
               },
               child: const Text('Salvează'),

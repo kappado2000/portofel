@@ -1,17 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'providers/money_provider.dart';
+import 'providers/profile_provider.dart';
 import 'screens/home_screen.dart';
 import 'screens/lock_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  final profileProvider = ProfileProvider();
+  await profileProvider.init();
   final moneyProvider = MoneyProvider();
-  await moneyProvider.init();
 
   runApp(
-    ChangeNotifierProvider.value(
-      value: moneyProvider,
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider.value(value: profileProvider),
+        ChangeNotifierProvider.value(value: moneyProvider),
+      ],
       child: const PortofelApp(),
     ),
   );
@@ -22,7 +27,7 @@ class PortofelApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final themeMode = context.watch<MoneyProvider>().themeMode;
+    final themeMode = context.watch<ProfileProvider>().themeMode;
     final lightScheme = ColorScheme.fromSeed(seedColor: Colors.teal);
     return MaterialApp(
       title: 'Portofel',
@@ -57,13 +62,35 @@ class AuthGate extends StatefulWidget {
 }
 
 class _AuthGateState extends State<AuthGate> {
-  bool _unlocked = false;
+  String? _loadedProfileId;
+  bool _loading = false;
+
+  Future<void> _ensureLoaded(String profileId) async {
+    if (_loading || _loadedProfileId == profileId) return;
+    _loading = true;
+    await context.read<MoneyProvider>().loadProfile(profileId);
+    if (!mounted) return;
+    setState(() {
+      _loadedProfileId = profileId;
+      _loading = false;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    if (!_unlocked) {
-      return LockScreen(onUnlocked: () => setState(() => _unlocked = true));
+    final profileProvider = context.watch<ProfileProvider>();
+
+    if (!profileProvider.isUnlocked || profileProvider.activeProfileId == null) {
+      _loadedProfileId = null;
+      return const LockScreen();
     }
+
+    final activeId = profileProvider.activeProfileId!;
+    if (_loadedProfileId != activeId) {
+      _ensureLoaded(activeId);
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
     return const HomeScreen();
   }
 }

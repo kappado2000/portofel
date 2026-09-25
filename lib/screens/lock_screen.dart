@@ -1,15 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import '../providers/money_provider.dart';
+import '../providers/profile_provider.dart';
 import '../services/biometric_service.dart';
 
-enum _Stage { login, setupPin, confirmPin, setupSecurity, forgotAnswer }
+enum _Stage {
+  pickProfile,
+  createName,
+  setupPin,
+  confirmPin,
+  setupSecurity,
+  login,
+  forgotAnswer,
+}
+
+const _securityQuestion = 'Care este numele animalului tău preferat?';
 
 class LockScreen extends StatefulWidget {
-  final VoidCallback onUnlocked;
-
-  const LockScreen({super.key, required this.onUnlocked});
+  const LockScreen({super.key});
 
   @override
   State<LockScreen> createState() => _LockScreenState();
@@ -18,6 +26,7 @@ class LockScreen extends StatefulWidget {
 class _LockScreenState extends State<LockScreen> {
   final _pinController = TextEditingController();
   final _confirmController = TextEditingController();
+  final _nameController = TextEditingController();
   final _answerController = TextEditingController();
   final _fieldFocusNode = FocusNode();
   final _answerFocusNode = FocusNode();
@@ -25,27 +34,38 @@ class _LockScreenState extends State<LockScreen> {
   late _Stage _stage;
   String? _error;
   String? _firstPin;
+  String? _pendingName;
+  String? _pendingProfileId;
+  bool _isRecovery = false;
   bool _biometricAvailable = false;
   bool _biometricAttempted = false;
 
   @override
   void initState() {
     super.initState();
-    final provider = context.read<MoneyProvider>();
-    _stage = provider.hasPin ? _Stage.login : _Stage.setupPin;
-    _checkBiometricAndMaybePrompt();
+    final provider = context.read<ProfileProvider>();
+    if (provider.profiles.isEmpty) {
+      _stage = _Stage.createName;
+    } else if (provider.activeProfileId != null) {
+      _pendingProfileId = provider.activeProfileId;
+      _stage = _Stage.login;
+      _checkBiometricAndMaybePrompt();
+    } else {
+      _stage = _Stage.pickProfile;
+    }
   }
 
   Future<void> _checkBiometricAndMaybePrompt() async {
-    final provider = context.read<MoneyProvider>();
-    if (!provider.hasPin || !provider.biometricEnabled) return;
+    final provider = context.read<ProfileProvider>();
+    final profile = provider.byId(_pendingProfileId ?? '');
+    if (profile == null || !profile.biometricEnabled) return;
     final available = await BiometricService.isAvailable();
     if (!mounted) return;
     setState(() => _biometricAvailable = available);
     if (available && !_biometricAttempted) {
       _biometricAttempted = true;
       final ok = await BiometricService.authenticate();
-      if (ok && mounted) widget.onUnlocked();
+      if (ok && mounted) _finishLogin(provider);
     }
   }
 
@@ -53,6 +73,7 @@ class _LockScreenState extends State<LockScreen> {
   void dispose() {
     _pinController.dispose();
     _confirmController.dispose();
+    _nameController.dispose();
     _answerController.dispose();
     _fieldFocusNode.dispose();
     _answerFocusNode.dispose();
@@ -71,9 +92,14 @@ class _LockScreenState extends State<LockScreen> {
     });
   }
 
+  void _finishLogin(ProfileProvider provider) {
+    provider.setActiveProfile(_pendingProfileId);
+    provider.unlock();
+  }
+
   @override
   Widget build(BuildContext context) {
-    final provider = context.watch<MoneyProvider>();
+    final provider = context.watch<ProfileProvider>();
 
     return Scaffold(
       body: Center(
@@ -91,45 +117,84 @@ class _LockScreenState extends State<LockScreen> {
     );
   }
 
-  List<Widget> _buildStageChildren(MoneyProvider provider) {
+  List<Widget> _buildStageChildren(ProfileProvider provider) {
     switch (_stage) {
-      case _Stage.login:
-        return _pinFieldStage(
-          icon: Icons.lock_outline,
-          title: 'Introdu parola',
-          subtitle: null,
-          controller: _pinController,
-          buttonLabel: 'Deblochează',
-          onSubmit: () => _submitLogin(provider),
-          extra: [
-            if (provider.biometricEnabled && _biometricAvailable) ...[
-              const SizedBox(height: 12),
-              OutlinedButton.icon(
-                onPressed: () async {
-                  final ok = await BiometricService.authenticate();
-                  if (ok) widget.onUnlocked();
-                },
-                icon: const Icon(Icons.fingerprint),
-                label: const Text('Autentificare biometrică'),
+      case _Stage.pickProfile:
+        return [
+          Icon(Icons.people_outline, size: 56, color: Theme.of(context).colorScheme.primary),
+          const SizedBox(height: 16),
+          Text('Cine ești?', style: Theme.of(context).textTheme.titleLarge, textAlign: TextAlign.center),
+          const SizedBox(height: 16),
+          ...provider.profiles.map(
+            (p) => Card(
+              child: ListTile(
+                leading: const Icon(Icons.person),
+                title: Text(p.name),
+                onTap: () => setState(() {
+                  _pendingProfileId = p.id;
+                  _stage = _Stage.login;
+                  _error = null;
+                  _pinController.clear();
+                  _biometricAttempted = false;
+                }),
               ),
-            ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: () => setState(() {
+              _stage = _Stage.createName;
+              _error = null;
+              _nameController.clear();
+            }),
+            icon: const Icon(Icons.person_add_alt),
+            label: const Text('Profil nou'),
+          ),
+        ];
+
+      case _Stage.createName:
+        return [
+          Icon(Icons.person_add_alt, size: 56, color: Theme.of(context).colorScheme.primary),
+          const SizedBox(height: 16),
+          Text('Cont nou', style: Theme.of(context).textTheme.titleLarge, textAlign: TextAlign.center),
+          const SizedBox(height: 8),
+          Text(
+            'Cum te numești?',
+            style: Theme.of(context).textTheme.bodySmall,
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 24),
+          TextField(
+            controller: _nameController,
+            focusNode: _answerFocusNode,
+            autofocus: true,
+            textCapitalization: TextCapitalization.words,
+            textAlign: TextAlign.center,
+            decoration: InputDecoration(errorText: _error, hintText: 'Numele tău'),
+            onSubmitted: (_) => _submitName(),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(onPressed: _submitName, child: const Text('Continuă')),
+          ),
+          if (provider.profiles.isNotEmpty) ...[
             const SizedBox(height: 8),
             TextButton(
               onPressed: () => setState(() {
-                _stage = _Stage.forgotAnswer;
+                _stage = _Stage.pickProfile;
                 _error = null;
-                _answerController.clear();
               }),
-              child: const Text('Am uitat parola'),
+              child: const Text('Înapoi'),
             ),
           ],
-        );
+        ];
 
       case _Stage.setupPin:
         return _pinFieldStage(
           icon: Icons.lock_outline,
           title: 'Setează o parolă de acces',
-          subtitle: 'Parola protejează accesul la Portofel pe acest dispozitiv.',
+          subtitle: 'Parola protejează accesul la profilul "${_pendingName ?? provider.byId(_pendingProfileId ?? '')?.name ?? ''}".',
           controller: _pinController,
           buttonLabel: 'Continuă',
           onSubmit: _submitFirstPin,
@@ -162,7 +227,7 @@ class _LockScreenState extends State<LockScreen> {
           ),
           const SizedBox(height: 24),
           Text(
-            MoneyProvider.securityQuestion,
+            _securityQuestion,
             style: Theme.of(context).textTheme.titleMedium,
             textAlign: TextAlign.center,
           ),
@@ -187,7 +252,49 @@ class _LockScreenState extends State<LockScreen> {
           ),
         ];
 
+      case _Stage.login:
+        final profile = provider.byId(_pendingProfileId ?? '');
+        return _pinFieldStage(
+          icon: Icons.lock_outline,
+          title: 'Salut, ${profile?.name ?? ''}',
+          subtitle: 'Introdu parola',
+          controller: _pinController,
+          buttonLabel: 'Deblochează',
+          onSubmit: () => _submitLogin(provider),
+          extra: [
+            if (profile != null && profile.biometricEnabled && _biometricAvailable) ...[
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: () async {
+                  final ok = await BiometricService.authenticate();
+                  if (ok) _finishLogin(provider);
+                },
+                icon: const Icon(Icons.fingerprint),
+                label: const Text('Autentificare biometrică'),
+              ),
+            ],
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: () => setState(() {
+                _stage = _Stage.forgotAnswer;
+                _error = null;
+                _answerController.clear();
+              }),
+              child: const Text('Am uitat parola'),
+            ),
+            if (provider.profiles.length > 1)
+              TextButton(
+                onPressed: () => setState(() {
+                  _stage = _Stage.pickProfile;
+                  _error = null;
+                }),
+                child: const Text('Schimbă profilul'),
+              ),
+          ],
+        );
+
       case _Stage.forgotAnswer:
+        final hasAnswer = provider.hasSecurityAnswer(_pendingProfileId ?? '');
         return [
           Icon(Icons.help_outline, size: 56, color: Theme.of(context).colorScheme.primary),
           const SizedBox(height: 16),
@@ -197,7 +304,7 @@ class _LockScreenState extends State<LockScreen> {
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 8),
-          if (!provider.hasSecurityAnswer)
+          if (!hasAnswer)
             Text(
               'Nu ai setat o întrebare de securitate, deci parola nu poate fi recuperată automat.',
               style: Theme.of(context).textTheme.bodySmall,
@@ -205,7 +312,7 @@ class _LockScreenState extends State<LockScreen> {
             )
           else ...[
             Text(
-              MoneyProvider.securityQuestion,
+              _securityQuestion,
               style: Theme.of(context).textTheme.titleMedium,
               textAlign: TextAlign.center,
             ),
@@ -285,6 +392,22 @@ class _LockScreenState extends State<LockScreen> {
     ];
   }
 
+  void _submitName() {
+    final name = _nameController.text.trim();
+    if (name.isEmpty) {
+      setState(() => _error = 'Introdu un nume');
+      return;
+    }
+    _pendingName = name;
+    _isRecovery = false;
+    setState(() {
+      _stage = _Stage.setupPin;
+      _error = null;
+      _pinController.clear();
+    });
+    _refocusField();
+  }
+
   void _submitFirstPin() {
     final pin = _pinController.text;
     if (pin.length < 4) {
@@ -295,6 +418,7 @@ class _LockScreenState extends State<LockScreen> {
     setState(() {
       _stage = _Stage.confirmPin;
       _error = null;
+      _confirmController.clear();
     });
     _refocusField();
   }
@@ -311,18 +435,24 @@ class _LockScreenState extends State<LockScreen> {
       _refocusField();
       return;
     }
-    final provider = context.read<MoneyProvider>();
-    await provider.setPin(confirm);
-    if (!mounted) return;
-    if (provider.hasSecurityAnswer) {
-      widget.onUnlocked();
-    } else {
-      setState(() {
-        _stage = _Stage.setupSecurity;
-        _error = null;
-      });
-      _refocusAnswerField();
+    final provider = context.read<ProfileProvider>();
+
+    if (_isRecovery) {
+      await provider.resetPinAfterRecovery(_pendingProfileId!, confirm);
+      if (!mounted) return;
+      _finishLogin(provider);
+      return;
     }
+
+    final profile = await provider.createProfile(name: _pendingName!, pin: confirm);
+    _pendingProfileId = profile.id;
+    if (!mounted) return;
+    setState(() {
+      _stage = _Stage.setupSecurity;
+      _error = null;
+      _answerController.clear();
+    });
+    _refocusAnswerField();
   }
 
   Future<void> _submitSecurityAnswerSetup() async {
@@ -331,15 +461,16 @@ class _LockScreenState extends State<LockScreen> {
       setState(() => _error = 'Introdu un răspuns');
       return;
     }
-    final provider = context.read<MoneyProvider>();
-    await provider.setSecurityAnswer(answer);
-    widget.onUnlocked();
+    final provider = context.read<ProfileProvider>();
+    await provider.setSecurityAnswer(_pendingProfileId!, answer);
+    if (!mounted) return;
+    _finishLogin(provider);
   }
 
-  void _submitLogin(MoneyProvider provider) {
+  void _submitLogin(ProfileProvider provider) {
     final pin = _pinController.text;
-    if (provider.verifyPin(pin)) {
-      widget.onUnlocked();
+    if (provider.verifyPin(_pendingProfileId ?? '', pin)) {
+      _finishLogin(provider);
     } else {
       setState(() {
         _error = 'Parolă incorectă';
@@ -349,15 +480,14 @@ class _LockScreenState extends State<LockScreen> {
     }
   }
 
-  Future<void> _submitForgotAnswer(MoneyProvider provider) async {
+  Future<void> _submitForgotAnswer(ProfileProvider provider) async {
     final answer = _answerController.text.trim();
-    if (!provider.verifySecurityAnswer(answer)) {
+    if (!provider.verifySecurityAnswer(_pendingProfileId ?? '', answer)) {
       setState(() => _error = 'Răspuns incorect');
       _refocusAnswerField();
       return;
     }
-    await provider.removePin();
-    if (!mounted) return;
+    _isRecovery = true;
     setState(() {
       _stage = _Stage.setupPin;
       _error = null;
