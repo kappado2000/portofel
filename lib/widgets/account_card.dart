@@ -15,7 +15,7 @@ class AccountCard extends StatelessWidget {
     final isEur = account.currency == AccountCurrency.eur;
     final color = isBank
         ? Colors.indigo
-        : (isEur ? Colors.teal : Colors.brown);
+        : (isEur ? Colors.teal : Colors.brown.shade400);
 
     return Card(
       clipBehavior: Clip.antiAlias,

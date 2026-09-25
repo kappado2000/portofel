@@ -23,6 +23,9 @@ class TransactionTile extends StatelessWidget {
     final to = tx.toAccountId != null ? provider.accountById(tx.toAccountId!) : null;
 
     Color color;
+    // Same dark shade the Venit/Plată buttons use for their own text, so the
+    // amount in this list reads with the exact same color as those buttons.
+    Color amountColor;
     String title;
     String subtitle;
     String amountText;
@@ -30,18 +33,21 @@ class TransactionTile extends StatelessWidget {
     switch (tx.type) {
       case TxType.income:
         color = Colors.green;
+        amountColor = Colors.green.shade800;
         title = tx.note.isNotEmpty ? tx.note : (tx.category.isEmpty ? 'Venit' : tx.category);
         subtitle = '${dateTimeFormat.format(tx.date)}${tx.category.isNotEmpty ? ' · ${tx.category}' : ''}';
         amountText = '+${from != null ? formatAmount(tx.amount, from.currency) : tx.amount}';
         break;
       case TxType.expense:
         color = Colors.red;
+        amountColor = Colors.red.shade800;
         title = tx.note.isNotEmpty ? tx.note : (tx.category.isEmpty ? 'Plată' : tx.category);
         subtitle = '${dateTimeFormat.format(tx.date)}${tx.category.isNotEmpty ? ' · ${tx.category}' : ''}';
         amountText = '-${from != null ? formatAmount(tx.amount, from.currency) : tx.amount}';
         break;
       case TxType.transfer:
         color = Colors.blueGrey;
+        amountColor = Colors.blueGrey;
         title = tx.note.isNotEmpty ? tx.note : '${from?.name ?? '?'} → ${to?.name ?? '?'}';
         subtitle = '${dateTimeFormat.format(tx.date)} · ${from?.name ?? '?'} → ${to?.name ?? '?'}';
         amountText = from != null ? formatAmount(tx.amount, from.currency) : '${tx.amount}';
@@ -75,7 +81,7 @@ class TransactionTile extends StatelessWidget {
         subtitle: Text(subtitle),
         trailing: AmountText(
           amountText,
-          style: TextStyle(color: color, fontWeight: FontWeight.bold),
+          style: TextStyle(color: amountColor, fontWeight: FontWeight.bold),
         ),
       ),
     );
