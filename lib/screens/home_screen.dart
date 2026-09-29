@@ -288,11 +288,11 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _venitPlataBar(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final fillTop = isDark
-        ? const Color(0xFF223027).withValues(alpha: 0.62)
-        : Colors.white.withValues(alpha: 0.58);
+        ? Colors.grey.shade900.withValues(alpha: 0.62)
+        : Colors.grey.shade200.withValues(alpha: 0.62);
     final fillBottom = isDark
-        ? const Color(0xFF16201A).withValues(alpha: 0.48)
-        : Colors.white.withValues(alpha: 0.40);
+        ? Colors.grey.shade800.withValues(alpha: 0.48)
+        : Colors.grey.shade400.withValues(alpha: 0.42);
     final edge = isDark
         ? Colors.white.withValues(alpha: 0.14)
         : Colors.white.withValues(alpha: 0.85);
