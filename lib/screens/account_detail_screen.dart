@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/money_provider.dart';
+import '../utils/card_styles.dart';
 import '../utils/formatters.dart';
 import '../widgets/amount_text.dart';
 import '../widgets/transaction_tile.dart';
@@ -34,21 +35,27 @@ class AccountDetailScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Card(
-            color: Theme.of(context).colorScheme.primaryContainer,
+          Container(
+            decoration: heroCardDecoration(),
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Sold curent', style: Theme.of(context).textTheme.titleSmall),
+                  Text(
+                    'Sold curent',
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleSmall
+                        ?.copyWith(color: Colors.white.withValues(alpha: 0.9)),
+                  ),
                   const SizedBox(height: 6),
                   AmountText(
                     formatAmount(account.balance, account.currency),
-                    style: Theme.of(context)
-                        .textTheme
-                        .headlineSmall
-                        ?.copyWith(fontWeight: FontWeight.bold),
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
                   ),
                 ],
               ),

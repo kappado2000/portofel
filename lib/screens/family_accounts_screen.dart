@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../models/account.dart';
 import '../providers/money_provider.dart';
 import '../utils/account_actions.dart';
+import '../utils/card_styles.dart';
 import '../utils/formatters.dart';
 import '../widgets/account_card.dart';
 import '../widgets/amount_text.dart';
@@ -57,26 +58,35 @@ class FamilyAccountsScreen extends StatelessWidget {
           : ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                Card(
-                  color: Theme.of(context).colorScheme.secondaryContainer,
+                Container(
+                  decoration: heroCardDecoration(),
                   child: Padding(
                     padding: const EdgeInsets.all(16),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Total familie', style: Theme.of(context).textTheme.titleSmall),
+                        Text(
+                          'Total familie',
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleSmall
+                              ?.copyWith(color: Colors.white.withValues(alpha: 0.9)),
+                        ),
                         const SizedBox(height: 6),
                         AmountText(
                           '${formatNumber(provider.totalInEur(group: AccountGroup.family))} €',
-                          style: Theme.of(context)
-                              .textTheme
-                              .headlineSmall
-                              ?.copyWith(fontWeight: FontWeight.bold),
+                          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
                         ),
                         const SizedBox(height: 2),
                         Text(
                           '≈ ${formatNumber(provider.totalInRon(group: AccountGroup.family))} lei',
-                          style: Theme.of(context).textTheme.bodySmall,
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodySmall
+                              ?.copyWith(color: Colors.white.withValues(alpha: 0.85)),
                         ),
                       ],
                     ),

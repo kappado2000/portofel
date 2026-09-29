@@ -249,7 +249,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
 class _TotalChip extends StatelessWidget {
   final String label;
   final Map<AccountCurrency, double> byCurrency;
-  final Color color;
+  final MaterialColor color;
 
   const _TotalChip({required this.label, required this.byCurrency, required this.color});
 
@@ -259,8 +259,12 @@ class _TotalChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(8),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [color.shade400, color.shade700],
+        ),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
