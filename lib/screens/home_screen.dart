@@ -135,13 +135,15 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
                       const SizedBox(height: 6),
-                      AmountText(
-                        '${formatNumber(provider.totalInEur())} €',
-                        style: Theme.of(context).textTheme.headlineSmall
-                            ?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
+                      Center(
+                        child: AmountText(
+                          '${formatNumber(provider.totalInEur())} €',
+                          style: Theme.of(context).textTheme.headlineSmall
+                              ?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                        ),
                       ),
                       const SizedBox(height: 2),
                       Text(
