@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../models/account.dart';
 import '../models/money_transaction.dart';
 import '../providers/money_provider.dart';
@@ -32,13 +33,30 @@ class _HistoryScreenState extends State<HistoryScreen> {
     }
     if (_filterAccountId != null) {
       txs = txs
-          .where((t) => t.fromAccountId == _filterAccountId || t.toAccountId == _filterAccountId)
+          .where(
+            (t) =>
+                t.fromAccountId == _filterAccountId ||
+                t.toAccountId == _filterAccountId,
+          )
           .toList();
     }
     if (_dateRange != null) {
-      final start = DateTime(_dateRange!.start.year, _dateRange!.start.month, _dateRange!.start.day);
-      final end = DateTime(_dateRange!.end.year, _dateRange!.end.month, _dateRange!.end.day, 23, 59, 59);
-      txs = txs.where((t) => !t.date.isBefore(start) && !t.date.isAfter(end)).toList();
+      final start = DateTime(
+        _dateRange!.start.year,
+        _dateRange!.start.month,
+        _dateRange!.start.day,
+      );
+      final end = DateTime(
+        _dateRange!.end.year,
+        _dateRange!.end.month,
+        _dateRange!.end.day,
+        23,
+        59,
+        59,
+      );
+      txs = txs
+          .where((t) => !t.date.isBefore(start) && !t.date.isAfter(end))
+          .toList();
     }
 
     final incomeByCurrency = <AccountCurrency, double>{};
@@ -47,9 +65,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
       final account = provider.accountById(t.fromAccountId);
       if (account == null) continue;
       if (t.type == TxType.income) {
-        incomeByCurrency[account.currency] = (incomeByCurrency[account.currency] ?? 0) + t.amount;
+        incomeByCurrency[account.currency] =
+            (incomeByCurrency[account.currency] ?? 0) + t.amount;
       } else if (t.type == TxType.expense) {
-        expenseByCurrency[account.currency] = (expenseByCurrency[account.currency] ?? 0) + t.amount;
+        expenseByCurrency[account.currency] =
+            (expenseByCurrency[account.currency] ?? 0) + t.amount;
       }
     }
 
@@ -74,12 +94,24 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 Expanded(
                   child: DropdownButtonFormField<TxType?>(
                     initialValue: _filterType,
-                    decoration: const InputDecoration(labelText: 'Tip', isDense: true),
+                    decoration: const InputDecoration(
+                      labelText: 'Tip',
+                      isDense: true,
+                    ),
                     items: const [
                       DropdownMenuItem(value: null, child: Text('Toate')),
-                      DropdownMenuItem(value: TxType.income, child: Text('Venituri')),
-                      DropdownMenuItem(value: TxType.expense, child: Text('Plăți')),
-                      DropdownMenuItem(value: TxType.transfer, child: Text('Transferuri')),
+                      DropdownMenuItem(
+                        value: TxType.income,
+                        child: Text('Venituri'),
+                      ),
+                      DropdownMenuItem(
+                        value: TxType.expense,
+                        child: Text('Plăți'),
+                      ),
+                      DropdownMenuItem(
+                        value: TxType.transfer,
+                        child: Text('Transferuri'),
+                      ),
                     ],
                     onChanged: (v) => setState(() => _filterType = v),
                   ),
@@ -88,11 +120,15 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 Expanded(
                   child: DropdownButtonFormField<String?>(
                     initialValue: _filterAccountId,
-                    decoration: const InputDecoration(labelText: 'Cont', isDense: true),
+                    decoration: const InputDecoration(
+                      labelText: 'Cont',
+                      isDense: true,
+                    ),
                     items: [
                       const DropdownMenuItem(value: null, child: Text('Toate')),
                       ...provider.accounts.map(
-                        (a) => DropdownMenuItem(value: a.id, child: Text(a.name)),
+                        (a) =>
+                            DropdownMenuItem(value: a.id, child: Text(a.name)),
                       ),
                     ],
                     onChanged: (v) => setState(() => _filterAccountId = v),
@@ -154,7 +190,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     itemCount: txs.length,
                     itemBuilder: (context, index) {
                       final tx = txs[index];
-                      return TransactionTile(tx: tx, provider: provider, index: index + 1);
+                      return TransactionTile(
+                        tx: tx,
+                        provider: provider,
+                        index: index + 1,
+                      );
                     },
                   ),
           ),
@@ -174,7 +214,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
   }
 
   Rect? _exportButtonRect() {
-    final box = _exportButtonKey.currentContext?.findRenderObject() as RenderBox?;
+    final box =
+        _exportButtonKey.currentContext?.findRenderObject() as RenderBox?;
     if (box == null) return null;
     return box.localToGlobal(Offset.zero) & box.size;
   }
@@ -185,8 +226,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
     List<MoneyTransaction> txs,
   ) async {
     if (txs.isEmpty) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Nu există tranzacții de exportat')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Nu există tranzacții de exportat')),
+      );
       return;
     }
 
@@ -220,7 +262,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
     try {
       switch (choice) {
         case 'print':
-          await PdfExportService.printTransactions(transactions: txs, provider: provider);
+          await PdfExportService.printTransactions(
+            transactions: txs,
+            provider: provider,
+          );
           break;
         case 'pdf':
           await PdfExportService.sharePdf(
@@ -251,7 +296,11 @@ class _TotalChip extends StatelessWidget {
   final Map<AccountCurrency, double> byCurrency;
   final MaterialColor color;
 
-  const _TotalChip({required this.label, required this.byCurrency, required this.color});
+  const _TotalChip({
+    required this.label,
+    required this.byCurrency,
+    required this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -271,21 +320,25 @@ class _TotalChip extends StatelessWidget {
         children: [
           Text(
             label,
-            style: Theme.of(context)
-                .textTheme
-                .labelSmall
+            style: Theme.of(context).textTheme.labelSmall
                 ?.copyWith(color: Colors.white.withValues(alpha: 0.85)),
           ),
           if (entries.isEmpty)
             AmountText(
               formatAmount(0, AccountCurrency.ron),
-              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
             )
           else
             ...entries.map(
               (e) => AmountText(
                 formatAmount(e.value, e.key),
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
         ],

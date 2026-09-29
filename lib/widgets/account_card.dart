@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../models/account.dart';
 import '../utils/card_styles.dart';
 import '../utils/formatters.dart';
@@ -59,31 +60,35 @@ class AccountCard extends StatelessWidget {
                     children: [
                       Text(
                         account.name,
-                        style: Theme.of(context)
-                            .textTheme
-                            .titleMedium
-                            ?.copyWith(color: Colors.white, fontWeight: FontWeight.bold),
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
                       ),
                       Text(
                         isBank ? 'Cont bancar · non-cash' : 'Numerar',
-                        style: Theme.of(context)
-                            .textTheme
-                            .bodySmall
-                            ?.copyWith(color: Colors.white.withValues(alpha: 0.85)),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Colors.white.withValues(alpha: 0.85),
+                        ),
                       ),
                     ],
                   ),
                 ),
                 AmountText(
                   formatAmount(account.balance, account.currency),
-                  style: Theme.of(context)
-                      .textTheme
-                      .titleMedium
-                      ?.copyWith(fontWeight: FontWeight.bold, color: Colors.white),
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
                 ),
                 if (onEdit != null)
                   IconButton(
-                    icon: const Icon(Icons.edit_outlined, size: 20, color: Colors.white),
+                    icon: const Icon(
+                      Icons.edit_outlined,
+                      size: 20,
+                      color: Colors.white,
+                    ),
                     visualDensity: VisualDensity.compact,
                     onPressed: onEdit,
                   ),

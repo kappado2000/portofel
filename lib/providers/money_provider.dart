@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:uuid/uuid.dart';
+
 import '../models/account.dart';
 import '../models/money_transaction.dart';
 
@@ -37,7 +38,9 @@ class MoneyProvider extends ChangeNotifier {
   Account? get defaultAccount {
     if (_accounts.isEmpty) return null;
     for (final a in _accounts) {
-      if (a.currency == AccountCurrency.eur && a.kind == AccountKind.cash) return a;
+      if (a.currency == AccountCurrency.eur && a.kind == AccountKind.cash) {
+        return a;
+      }
     }
     return _accounts.first;
   }
@@ -89,9 +92,27 @@ class MoneyProvider extends ChangeNotifier {
 
   void _seedDefaultAccounts() {
     final defaults = [
-      Account(id: _uuid.v4(), name: 'Cash Lei', currency: AccountCurrency.ron, kind: AccountKind.cash, sortOrder: 0),
-      Account(id: _uuid.v4(), name: 'Cash Euro', currency: AccountCurrency.eur, kind: AccountKind.cash, sortOrder: 1),
-      Account(id: _uuid.v4(), name: 'Cont', currency: AccountCurrency.ron, kind: AccountKind.bank, sortOrder: 2),
+      Account(
+        id: _uuid.v4(),
+        name: 'Cash Lei',
+        currency: AccountCurrency.ron,
+        kind: AccountKind.cash,
+        sortOrder: 0,
+      ),
+      Account(
+        id: _uuid.v4(),
+        name: 'Cash Euro',
+        currency: AccountCurrency.eur,
+        kind: AccountKind.cash,
+        sortOrder: 1,
+      ),
+      Account(
+        id: _uuid.v4(),
+        name: 'Cont',
+        currency: AccountCurrency.ron,
+        kind: AccountKind.bank,
+        sortOrder: 2,
+      ),
     ];
     for (final a in defaults) {
       _accountsBox!.put(a.id, a.toMap());
@@ -99,7 +120,9 @@ class MoneyProvider extends ChangeNotifier {
   }
 
   void _loadFromBoxes() {
-    _accounts = _accountsBox!.values.map((m) => Account.fromMap(Map.from(m))).toList();
+    _accounts = _accountsBox!.values
+        .map((m) => Account.fromMap(Map.from(m)))
+        .toList();
     _transactions = _transactionsBox!.values
         .map((m) => MoneyTransaction.fromMap(Map.from(m)))
         .toList();
@@ -141,7 +164,11 @@ class MoneyProvider extends ChangeNotifier {
   /// din callback-ul `onReorderItem`, care are deja newIndex ajustat pentru
   /// elementul scos de la oldIndex (spre deosebire de vechiul `onReorder`,
   /// deprecated în Flutter 3.47).
-  Future<void> reorderAccounts(AccountGroup group, int oldIndex, int newIndex) async {
+  Future<void> reorderAccounts(
+    AccountGroup group,
+    int oldIndex,
+    int newIndex,
+  ) async {
     final list = _sortedByGroup(group).toList();
     final moved = list.removeAt(oldIndex);
     list.insert(newIndex, moved);
@@ -152,26 +179,33 @@ class MoneyProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> renameAccount(String id, String newName) async {
+  Future<void> updateAccount(
+    String id, {
+    required String name,
+    required AccountGroup group,
+    required AccountCurrency currency,
+    required AccountKind kind,
+    required double balance,
+  }) async {
     final account = accountById(id);
     if (account == null) return;
-    account.name = newName;
-    _persistAccount(account);
-    notifyListeners();
-  }
-
-  Future<void> setAccountGroup(String id, AccountGroup group) async {
-    final account = accountById(id);
-    if (account == null) return;
+    account.name = name;
     account.group = group;
+    account.currency = currency;
+    account.kind = kind;
+    account.balance = balance;
     _persistAccount(account);
     notifyListeners();
   }
 
   Future<void> deleteAccount(String id) async {
-    final hasTx = _transactions.any((t) => t.fromAccountId == id || t.toAccountId == id);
+    final hasTx = _transactions.any(
+      (t) => t.fromAccountId == id || t.toAccountId == id,
+    );
     if (hasTx) {
-      throw Exception('Nu poți șterge un cont care are tranzacții. Șterge întâi tranzacțiile.');
+      throw Exception(
+        'Nu poți șterge un cont care are tranzacții. Șterge întâi tranzacțiile.',
+      );
     }
     _accounts.removeWhere((a) => a.id == id);
     _accountsBox?.delete(id);
@@ -251,9 +285,11 @@ class MoneyProvider extends ChangeNotifier {
     double? usedRate;
     if (from.currency != to.currency) {
       usedRate = exchangeRate ?? defaultExchangeRate;
-      if (from.currency == AccountCurrency.eur && to.currency == AccountCurrency.ron) {
+      if (from.currency == AccountCurrency.eur &&
+          to.currency == AccountCurrency.ron) {
         converted = amount * usedRate;
-      } else if (from.currency == AccountCurrency.ron && to.currency == AccountCurrency.eur) {
+      } else if (from.currency == AccountCurrency.ron &&
+          to.currency == AccountCurrency.eur) {
         converted = amount / usedRate;
       }
     }
@@ -383,9 +419,11 @@ class MoneyProvider extends ChangeNotifier {
     double? usedRate;
     if (from.currency != to.currency) {
       usedRate = exchangeRate ?? defaultExchangeRate;
-      if (from.currency == AccountCurrency.eur && to.currency == AccountCurrency.ron) {
+      if (from.currency == AccountCurrency.eur &&
+          to.currency == AccountCurrency.ron) {
         converted = amount * usedRate;
-      } else if (from.currency == AccountCurrency.ron && to.currency == AccountCurrency.eur) {
+      } else if (from.currency == AccountCurrency.ron &&
+          to.currency == AccountCurrency.eur) {
         converted = amount / usedRate;
       }
     }
@@ -425,16 +463,24 @@ class MoneyProvider extends ChangeNotifier {
 
   double totalInRon({AccountGroup? group}) {
     double total = 0;
-    for (final a in _accounts.where((a) => a.group == (group ?? AccountGroup.personal))) {
-      total += a.currency == AccountCurrency.ron ? a.balance : a.balance * defaultExchangeRate;
+    for (final a in _accounts.where(
+      (a) => a.group == (group ?? AccountGroup.personal),
+    )) {
+      total += a.currency == AccountCurrency.ron
+          ? a.balance
+          : a.balance * defaultExchangeRate;
     }
     return total;
   }
 
   double totalInEur({AccountGroup? group}) {
     double total = 0;
-    for (final a in _accounts.where((a) => a.group == (group ?? AccountGroup.personal))) {
-      total += a.currency == AccountCurrency.eur ? a.balance : a.balance / defaultExchangeRate;
+    for (final a in _accounts.where(
+      (a) => a.group == (group ?? AccountGroup.personal),
+    )) {
+      total += a.currency == AccountCurrency.eur
+          ? a.balance
+          : a.balance / defaultExchangeRate;
     }
     return total;
   }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../providers/money_provider.dart';
 import '../utils/card_styles.dart';
 import '../utils/formatters.dart';
@@ -27,7 +28,9 @@ class AccountDetailScreen extends StatelessWidget {
     }
 
     final history = provider.transactions
-        .where((t) => t.fromAccountId == account.id || t.toAccountId == account.id)
+        .where(
+          (t) => t.fromAccountId == account.id || t.toAccountId == account.id,
+        )
         .toList();
 
     return Scaffold(
@@ -44,18 +47,16 @@ class AccountDetailScreen extends StatelessWidget {
                 children: [
                   Text(
                     'Sold curent',
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleSmall
+                    style: Theme.of(context).textTheme.titleSmall
                         ?.copyWith(color: Colors.white.withValues(alpha: 0.9)),
                   ),
                   const SizedBox(height: 6),
                   AmountText(
                     formatAmount(account.balance, account.currency),
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
                   ),
                 ],
               ),
@@ -74,7 +75,10 @@ class AccountDetailScreen extends StatelessWidget {
                   onPressed: () => Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => AddTransactionScreen(initialTab: 0, initialAccountId: account.id),
+                      builder: (_) => AddTransactionScreen(
+                        initialTab: 0,
+                        initialAccountId: account.id,
+                      ),
                     ),
                   ),
                   icon: const Icon(Icons.add),
@@ -92,7 +96,10 @@ class AccountDetailScreen extends StatelessWidget {
                   onPressed: () => Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => AddTransactionScreen(initialTab: 1, initialAccountId: account.id),
+                      builder: (_) => AddTransactionScreen(
+                        initialTab: 1,
+                        initialAccountId: account.id,
+                      ),
                     ),
                   ),
                   icon: const Icon(Icons.remove),
@@ -108,7 +115,10 @@ class AccountDetailScreen extends StatelessWidget {
               onPressed: () => Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => AddTransactionScreen(initialTab: 2, initialAccountId: account.id),
+                  builder: (_) => AddTransactionScreen(
+                    initialTab: 2,
+                    initialAccountId: account.id,
+                  ),
                 ),
               ),
               icon: const Icon(Icons.swap_horiz),
@@ -125,7 +135,11 @@ class AccountDetailScreen extends StatelessWidget {
             )
           else
             ...history.indexed.map(
-              (e) => TransactionTile(tx: e.$2, provider: provider, index: e.$1 + 1),
+              (e) => TransactionTile(
+                tx: e.$2,
+                provider: provider,
+                index: e.$1 + 1,
+              ),
             ),
         ],
       ),

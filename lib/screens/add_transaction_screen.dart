@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../models/account.dart';
 import '../models/money_transaction.dart';
 import '../providers/money_provider.dart';
@@ -31,12 +32,16 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
     super.initState();
     final initialIndex = widget.editing != null
         ? (widget.editing!.type == TxType.income
-            ? 0
-            : widget.editing!.type == TxType.expense
-                ? 1
-                : 2)
+              ? 0
+              : widget.editing!.type == TxType.expense
+              ? 1
+              : 2)
         : widget.initialTab;
-    _tabController = TabController(length: 3, vsync: this, initialIndex: initialIndex);
+    _tabController = TabController(
+      length: 3,
+      vsync: this,
+      initialIndex: initialIndex,
+    );
   }
 
   @override
@@ -77,8 +82,14 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
       body: TabBarView(
         controller: _tabController,
         children: [
-          _IncomeExpenseForm(isIncome: true, initialAccountId: widget.initialAccountId),
-          _IncomeExpenseForm(isIncome: false, initialAccountId: widget.initialAccountId),
+          _IncomeExpenseForm(
+            isIncome: true,
+            initialAccountId: widget.initialAccountId,
+          ),
+          _IncomeExpenseForm(
+            isIncome: false,
+            initialAccountId: widget.initialAccountId,
+          ),
           _TransferForm(initialFromAccountId: widget.initialAccountId),
         ],
       ),
@@ -90,7 +101,11 @@ class _IncomeExpenseForm extends StatefulWidget {
   final bool isIncome;
   final MoneyTransaction? editing;
   final String? initialAccountId;
-  const _IncomeExpenseForm({required this.isIncome, this.editing, this.initialAccountId});
+  const _IncomeExpenseForm({
+    required this.isIncome,
+    this.editing,
+    this.initialAccountId,
+  });
 
   @override
   State<_IncomeExpenseForm> createState() => _IncomeExpenseFormState();
@@ -101,7 +116,9 @@ class _IncomeExpenseFormState extends State<_IncomeExpenseForm> {
   late final _amountController = TextEditingController(
     text: widget.editing != null ? _plainNumber(widget.editing!.amount) : '',
   );
-  late final _noteController = TextEditingController(text: widget.editing?.note ?? '');
+  late final _noteController = TextEditingController(
+    text: widget.editing?.note ?? '',
+  );
   String? _accountId;
   String? _category;
   late DateTime _date = widget.editing?.date ?? DateTime.now();
@@ -136,10 +153,12 @@ class _IncomeExpenseFormState extends State<_IncomeExpenseForm> {
               labelText: widget.isIncome ? 'Cont destinație' : 'Cont sursă',
             ),
             items: accounts
-                .map((a) => DropdownMenuItem(
-                      value: a.id,
-                      child: Text('${a.name} (${currencyLabel(a.currency)})'),
-                    ))
+                .map(
+                  (a) => DropdownMenuItem(
+                    value: a.id,
+                    child: Text('${a.name} (${currencyLabel(a.currency)})'),
+                  ),
+                )
                 .toList(),
             onChanged: (v) => setState(() => _accountId = v),
           ),
@@ -163,7 +182,9 @@ class _IncomeExpenseFormState extends State<_IncomeExpenseForm> {
                   ? 'ex: Salariu, Cadou de la...'
                   : 'ex: Cumpărături Lidl, Factură curent',
             ),
-            validator: (v) => (v == null || v.trim().isEmpty) ? 'Introdu denumirea operațiunii' : null,
+            validator: (v) => (v == null || v.trim().isEmpty)
+                ? 'Introdu denumirea operațiunii'
+                : null,
           ),
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
@@ -180,18 +201,22 @@ class _IncomeExpenseFormState extends State<_IncomeExpenseForm> {
             contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.event),
             title: Text(dateTimeFormat.format(_date)),
-            subtitle: Text(_isEditing
-                ? 'Data operațiunii'
-                : 'Data operațiunii (completată automat, poți schimba)'),
+            subtitle: Text(
+              _isEditing
+                  ? 'Data operațiunii'
+                  : 'Data operațiunii (completată automat, poți schimba)',
+            ),
             trailing: const Icon(Icons.edit_outlined, size: 18),
             onTap: _pickDateTime,
           ),
           const SizedBox(height: 12),
           FilledButton(
             onPressed: accounts.isEmpty ? null : _submit,
-            child: Text(_isEditing
-                ? 'Salvează modificările'
-                : (widget.isIncome ? 'Adaugă venit' : 'Adaugă plată')),
+            child: Text(
+              _isEditing
+                  ? 'Salvează modificările'
+                  : (widget.isIncome ? 'Adaugă venit' : 'Adaugă plată'),
+            ),
           ),
           if (_isEditing) ...[
             const SizedBox(height: 8),
@@ -279,8 +304,14 @@ class _IncomeExpenseFormState extends State<_IncomeExpenseForm> {
               'Vrei să continui oricum?',
             ),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Anulează')),
-              FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Continuă')),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Anulează'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Continuă'),
+              ),
             ],
           ),
         );
@@ -297,7 +328,9 @@ class _IncomeExpenseFormState extends State<_IncomeExpenseForm> {
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(widget.isIncome ? 'Venit adăugat' : 'Plată adăugată')),
+        SnackBar(
+          content: Text(widget.isIncome ? 'Venit adăugat' : 'Plată adăugată'),
+        ),
       );
       _amountController.clear();
       _noteController.clear();
@@ -315,8 +348,14 @@ class _IncomeExpenseFormState extends State<_IncomeExpenseForm> {
         title: const Text('Șterge tranzacția?'),
         content: const Text('Soldul contului va fi actualizat corespunzător.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Anulează')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Șterge')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Anulează'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Șterge'),
+          ),
         ],
       ),
     );
@@ -346,7 +385,9 @@ class _TransferFormState extends State<_TransferForm> {
         ? widget.editing!.exchangeRate!.toStringAsFixed(4)
         : '',
   );
-  late final _noteController = TextEditingController(text: widget.editing?.note ?? '');
+  late final _noteController = TextEditingController(
+    text: widget.editing?.note ?? '',
+  );
   String? _fromId;
   String? _toId;
   late DateTime _date = widget.editing?.date ?? DateTime.now();
@@ -369,12 +410,15 @@ class _TransferFormState extends State<_TransferForm> {
     final accounts = provider.accounts;
     _fromId ??= provider.defaultAccount?.id;
     _toId ??= accounts.length > 1
-        ? accounts.firstWhere((a) => a.id != _fromId, orElse: () => accounts.first).id
+        ? accounts
+              .firstWhere((a) => a.id != _fromId, orElse: () => accounts.first)
+              .id
         : null;
 
     final fromAccount = _fromId != null ? provider.accountById(_fromId!) : null;
     final toAccount = _toId != null ? provider.accountById(_toId!) : null;
-    final needsRate = fromAccount != null &&
+    final needsRate =
+        fromAccount != null &&
         toAccount != null &&
         fromAccount.currency != toAccount.currency;
 
@@ -397,10 +441,12 @@ class _TransferFormState extends State<_TransferForm> {
             initialValue: _fromId,
             decoration: const InputDecoration(labelText: 'Din contul'),
             items: accounts
-                .map((a) => DropdownMenuItem(
-                      value: a.id,
-                      child: Text('${a.name} (${currencyLabel(a.currency)})'),
-                    ))
+                .map(
+                  (a) => DropdownMenuItem(
+                    value: a.id,
+                    child: Text('${a.name} (${currencyLabel(a.currency)})'),
+                  ),
+                )
                 .toList(),
             onChanged: (v) => setState(() => _fromId = v),
           ),
@@ -410,10 +456,12 @@ class _TransferFormState extends State<_TransferForm> {
             decoration: const InputDecoration(labelText: 'În contul'),
             items: accounts
                 .where((a) => a.id != _fromId)
-                .map((a) => DropdownMenuItem(
-                      value: a.id,
-                      child: Text('${a.name} (${currencyLabel(a.currency)})'),
-                    ))
+                .map(
+                  (a) => DropdownMenuItem(
+                    value: a.id,
+                    child: Text('${a.name} (${currencyLabel(a.currency)})'),
+                  ),
+                )
                 .toList(),
             onChanged: (v) => setState(() => _toId = v),
             validator: (v) => v == null ? 'Alege contul destinație' : null,
@@ -423,7 +471,8 @@ class _TransferFormState extends State<_TransferForm> {
             controller: _amountController,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             decoration: InputDecoration(
-              labelText: 'Sumă${fromAccount != null ? ' (${currencyLabel(fromAccount.currency)})' : ''}',
+              labelText:
+                  'Sumă${fromAccount != null ? ' (${currencyLabel(fromAccount.currency)})' : ''}',
             ),
             validator: (v) {
               final value = double.tryParse((v ?? '').replaceAll(',', '.'));
@@ -436,7 +485,9 @@ class _TransferFormState extends State<_TransferForm> {
             const SizedBox(height: 12),
             TextFormField(
               controller: _rateController,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
               decoration: const InputDecoration(
                 labelText: 'Curs de schimb (1 EUR = ? RON)',
               ),
@@ -448,7 +499,10 @@ class _TransferFormState extends State<_TransferForm> {
               onChanged: (_) => setState(() {}),
             ),
             const SizedBox(height: 8),
-            Text(_previewText(fromAccount, toAccount), style: Theme.of(context).textTheme.bodyMedium),
+            Text(
+              _previewText(fromAccount, toAccount),
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
           ],
           const SizedBox(height: 12),
           TextFormField(
@@ -463,16 +517,20 @@ class _TransferFormState extends State<_TransferForm> {
             contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.event),
             title: Text(dateTimeFormat.format(_date)),
-            subtitle: Text(_isEditing
-                ? 'Data operațiunii'
-                : 'Data operațiunii (completată automat, poți schimba)'),
+            subtitle: Text(
+              _isEditing
+                  ? 'Data operațiunii'
+                  : 'Data operațiunii (completată automat, poți schimba)',
+            ),
             trailing: const Icon(Icons.edit_outlined, size: 18),
             onTap: _pickDateTime,
           ),
           const SizedBox(height: 12),
           FilledButton(
             onPressed: (accounts.length < 2) ? null : _submit,
-            child: Text(_isEditing ? 'Salvează modificările' : 'Confirmă transferul'),
+            child: Text(
+              _isEditing ? 'Salvează modificările' : 'Confirmă transferul',
+            ),
           ),
           if (_isEditing) ...[
             const SizedBox(height: 8),
@@ -525,7 +583,11 @@ class _TransferFormState extends State<_TransferForm> {
   }
 
   Future<void> _submit() async {
-    if (!_formKey.currentState!.validate() || _fromId == null || _toId == null) return;
+    if (!_formKey.currentState!.validate() ||
+        _fromId == null ||
+        _toId == null) {
+      return;
+    }
     final amount = double.parse(_amountController.text.replaceAll(',', '.'));
     final rate = _rateController.text.isNotEmpty
         ? double.tryParse(_rateController.text.replaceAll(',', '.'))
@@ -558,8 +620,14 @@ class _TransferFormState extends State<_TransferForm> {
             'Vrei să continui oricum?',
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Anulează')),
-            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Continuă')),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Anulează'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Continuă'),
+            ),
           ],
         ),
       );
@@ -576,9 +644,8 @@ class _TransferFormState extends State<_TransferForm> {
     );
 
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Transfer efectuat')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Transfer efectuat')));
       _amountController.clear();
       _noteController.clear();
       setState(() => _date = DateTime.now());
@@ -590,10 +657,18 @@ class _TransferFormState extends State<_TransferForm> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Șterge tranzacția?'),
-        content: const Text('Soldul conturilor va fi actualizat corespunzător.'),
+        content: const Text(
+          'Soldul conturilor va fi actualizat corespunzător.',
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Anulează')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Șterge')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Anulează'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Șterge'),
+          ),
         ],
       ),
     );

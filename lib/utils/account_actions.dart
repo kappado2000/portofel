@@ -1,15 +1,21 @@
 import 'package:flutter/material.dart';
+
 import '../models/account.dart';
 import '../providers/money_provider.dart';
 
-/// Dialogul de editare a unui cont (nume + grup), reutilizat din ecranul
-/// Conturi și din Conturi Familie.
+/// Dialogul de editare a unui cont — toate datele acestuia (nume, valută,
+/// tip, grup, sold), reutilizat din ecranul Conturi și din Conturi Familie.
 Future<void> editAccountDialog(
   BuildContext context,
   MoneyProvider provider,
   Account account,
 ) async {
-  final controller = TextEditingController(text: account.name);
+  final nameController = TextEditingController(text: account.name);
+  final balanceController = TextEditingController(
+    text: account.balance.toStringAsFixed(2),
+  );
+  AccountCurrency currency = account.currency;
+  AccountKind kind = account.kind;
   AccountGroup group = account.group;
 
   final result = await showDialog<bool>(
@@ -17,25 +23,72 @@ Future<void> editAccountDialog(
     builder: (ctx) => StatefulBuilder(
       builder: (ctx, setState) => AlertDialog(
         title: const Text('Editează contul'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: controller,
-              autofocus: true,
-              decoration: const InputDecoration(labelText: 'Nume cont'),
-            ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<AccountGroup>(
-              initialValue: group,
-              decoration: const InputDecoration(labelText: 'Grup'),
-              items: groupDropdownItems(),
-              onChanged: (v) => setState(() => group = v ?? AccountGroup.personal),
-            ),
-          ],
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                autofocus: true,
+                decoration: const InputDecoration(labelText: 'Nume cont'),
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<AccountCurrency>(
+                initialValue: currency,
+                decoration: const InputDecoration(labelText: 'Valută'),
+                items: const [
+                  DropdownMenuItem(
+                    value: AccountCurrency.ron,
+                    child: Text('RON'),
+                  ),
+                  DropdownMenuItem(
+                    value: AccountCurrency.eur,
+                    child: Text('EUR'),
+                  ),
+                ],
+                onChanged: (v) =>
+                    setState(() => currency = v ?? AccountCurrency.ron),
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<AccountKind>(
+                initialValue: kind,
+                decoration: const InputDecoration(labelText: 'Tip'),
+                items: const [
+                  DropdownMenuItem(
+                    value: AccountKind.cash,
+                    child: Text('Numerar (cash)'),
+                  ),
+                  DropdownMenuItem(
+                    value: AccountKind.bank,
+                    child: Text('Cont bancar'),
+                  ),
+                ],
+                onChanged: (v) => setState(() => kind = v ?? AccountKind.cash),
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<AccountGroup>(
+                initialValue: group,
+                decoration: const InputDecoration(labelText: 'Grup'),
+                items: groupDropdownItems(),
+                onChanged: (v) =>
+                    setState(() => group = v ?? AccountGroup.personal),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: balanceController,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                decoration: const InputDecoration(labelText: 'Sold'),
+              ),
+            ],
+          ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Anulează')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Anulează'),
+          ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Salvează'),
@@ -46,11 +99,18 @@ Future<void> editAccountDialog(
   );
 
   if (result == true) {
-    final newName = controller.text.trim();
-    if (newName.isNotEmpty) {
-      await provider.renameAccount(account.id, newName);
-    }
-    await provider.setAccountGroup(account.id, group);
+    final newName = nameController.text.trim();
+    final newBalance =
+        double.tryParse(balanceController.text.replaceAll(',', '.')) ??
+        account.balance;
+    await provider.updateAccount(
+      account.id,
+      name: newName.isNotEmpty ? newName : account.name,
+      group: group,
+      currency: currency,
+      kind: kind,
+      balance: newBalance,
+    );
   }
 }
 
@@ -67,8 +127,14 @@ Future<bool> confirmDeleteAccount(
       title: const Text('Șterge contul?'),
       content: Text('Vrei să ștergi contul "${account.name}"?'),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Anulează')),
-        FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Șterge')),
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, false),
+          child: const Text('Anulează'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(ctx, true),
+          child: const Text('Șterge'),
+        ),
       ],
     ),
   );
@@ -87,24 +153,24 @@ Future<bool> confirmDeleteAccount(
 }
 
 List<DropdownMenuItem<AccountGroup>> groupDropdownItems() => const [
-      DropdownMenuItem(
-        value: AccountGroup.personal,
-        child: Row(
-          children: [
-            Icon(Icons.person_outline, size: 18),
-            SizedBox(width: 8),
-            Text('Personal'),
-          ],
-        ),
-      ),
-      DropdownMenuItem(
-        value: AccountGroup.family,
-        child: Row(
-          children: [
-            Icon(Icons.family_restroom, size: 18),
-            SizedBox(width: 8),
-            Text('Familie'),
-          ],
-        ),
-      ),
-    ];
+  DropdownMenuItem(
+    value: AccountGroup.personal,
+    child: Row(
+      children: [
+        Icon(Icons.person_outline, size: 18),
+        SizedBox(width: 8),
+        Text('Personal'),
+      ],
+    ),
+  ),
+  DropdownMenuItem(
+    value: AccountGroup.family,
+    child: Row(
+      children: [
+        Icon(Icons.family_restroom, size: 18),
+        SizedBox(width: 8),
+        Text('Familie'),
+      ],
+    ),
+  ),
+];

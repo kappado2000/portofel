@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../models/account.dart';
 import '../providers/money_provider.dart';
 import '../utils/account_actions.dart';
@@ -33,7 +34,12 @@ class AccountsScreen extends StatelessWidget {
               child: Text('Niciun cont personal'),
             )
           else
-            _reorderableGroup(context, provider, personal, AccountGroup.personal),
+            _reorderableGroup(
+              context,
+              provider,
+              personal,
+              AccountGroup.personal,
+            ),
           const SizedBox(height: 20),
           Row(
             children: [
@@ -77,7 +83,8 @@ class AccountsScreen extends StatelessWidget {
       physics: const NeverScrollableScrollPhysics(),
       buildDefaultDragHandles: false,
       itemCount: accounts.length,
-      onReorderItem: (oldIndex, newIndex) => provider.reorderAccounts(group, oldIndex, newIndex),
+      onReorderItem: (oldIndex, newIndex) =>
+          provider.reorderAccounts(group, oldIndex, newIndex),
       itemBuilder: (context, index) {
         final account = accounts[index];
         // Apăsare lungă oriunde pe card pornește drag-ul de reordonare (nu
@@ -91,7 +98,8 @@ class AccountsScreen extends StatelessWidget {
             child: Dismissible(
               key: ValueKey('dismiss_${account.id}'),
               direction: DismissDirection.endToStart,
-              confirmDismiss: (_) => confirmDeleteAccount(context, provider, account),
+              confirmDismiss: (_) =>
+                  confirmDeleteAccount(context, provider, account),
               background: Container(
                 color: Colors.red,
                 alignment: Alignment.centerRight,
@@ -135,44 +143,68 @@ class AccountsScreen extends StatelessWidget {
                   initialValue: currency,
                   decoration: const InputDecoration(labelText: 'Valută'),
                   items: const [
-                    DropdownMenuItem(value: AccountCurrency.ron, child: Text('RON')),
-                    DropdownMenuItem(value: AccountCurrency.eur, child: Text('EUR')),
+                    DropdownMenuItem(
+                      value: AccountCurrency.ron,
+                      child: Text('RON'),
+                    ),
+                    DropdownMenuItem(
+                      value: AccountCurrency.eur,
+                      child: Text('EUR'),
+                    ),
                   ],
-                  onChanged: (v) => setState(() => currency = v ?? AccountCurrency.ron),
+                  onChanged: (v) =>
+                      setState(() => currency = v ?? AccountCurrency.ron),
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<AccountKind>(
                   initialValue: kind,
                   decoration: const InputDecoration(labelText: 'Tip'),
                   items: const [
-                    DropdownMenuItem(value: AccountKind.cash, child: Text('Numerar (cash)')),
-                    DropdownMenuItem(value: AccountKind.bank, child: Text('Cont bancar')),
+                    DropdownMenuItem(
+                      value: AccountKind.cash,
+                      child: Text('Numerar (cash)'),
+                    ),
+                    DropdownMenuItem(
+                      value: AccountKind.bank,
+                      child: Text('Cont bancar'),
+                    ),
                   ],
-                  onChanged: (v) => setState(() => kind = v ?? AccountKind.cash),
+                  onChanged: (v) =>
+                      setState(() => kind = v ?? AccountKind.cash),
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<AccountGroup>(
                   initialValue: group,
                   decoration: const InputDecoration(labelText: 'Grup'),
                   items: groupDropdownItems(),
-                  onChanged: (v) => setState(() => group = v ?? AccountGroup.personal),
+                  onChanged: (v) =>
+                      setState(() => group = v ?? AccountGroup.personal),
                 ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: balanceController,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
                   decoration: const InputDecoration(labelText: 'Sold inițial'),
                 ),
               ],
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Anulează')),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Anulează'),
+            ),
             FilledButton(
               onPressed: () async {
                 final name = nameController.text.trim();
                 if (name.isEmpty) return;
-                final balance = double.tryParse(balanceController.text.replaceAll(',', '.')) ?? 0;
+                final balance =
+                    double.tryParse(
+                      balanceController.text.replaceAll(',', '.'),
+                    ) ??
+                    0;
                 await provider.addAccount(
                   name: name,
                   currency: currency,

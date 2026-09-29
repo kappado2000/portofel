@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../models/money_transaction.dart';
 import '../providers/money_provider.dart';
 import '../screens/add_transaction_screen.dart';
@@ -20,7 +21,9 @@ class TransactionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final from = provider.accountById(tx.fromAccountId);
-    final to = tx.toAccountId != null ? provider.accountById(tx.toAccountId!) : null;
+    final to = tx.toAccountId != null
+        ? provider.accountById(tx.toAccountId!)
+        : null;
 
     Color color;
     // Same dark shade the Venit/Plată buttons use for their own text, so the
@@ -34,23 +37,36 @@ class TransactionTile extends StatelessWidget {
       case TxType.income:
         color = Colors.green;
         amountColor = Colors.green.shade800;
-        title = tx.note.isNotEmpty ? tx.note : (tx.category.isEmpty ? 'Venit' : tx.category);
-        subtitle = '${dateTimeFormat.format(tx.date)}${tx.category.isNotEmpty ? ' · ${tx.category}' : ''}';
-        amountText = '+${from != null ? formatAmount(tx.amount, from.currency) : tx.amount}';
+        title = tx.note.isNotEmpty
+            ? tx.note
+            : (tx.category.isEmpty ? 'Venit' : tx.category);
+        subtitle =
+            '${dateTimeFormat.format(tx.date)}${tx.category.isNotEmpty ? ' · ${tx.category}' : ''}';
+        amountText =
+            '+${from != null ? formatAmount(tx.amount, from.currency) : tx.amount}';
         break;
       case TxType.expense:
         color = Colors.red;
         amountColor = Colors.red.shade800;
-        title = tx.note.isNotEmpty ? tx.note : (tx.category.isEmpty ? 'Plată' : tx.category);
-        subtitle = '${dateTimeFormat.format(tx.date)}${tx.category.isNotEmpty ? ' · ${tx.category}' : ''}';
-        amountText = '-${from != null ? formatAmount(tx.amount, from.currency) : tx.amount}';
+        title = tx.note.isNotEmpty
+            ? tx.note
+            : (tx.category.isEmpty ? 'Plată' : tx.category);
+        subtitle =
+            '${dateTimeFormat.format(tx.date)}${tx.category.isNotEmpty ? ' · ${tx.category}' : ''}';
+        amountText =
+            '-${from != null ? formatAmount(tx.amount, from.currency) : tx.amount}';
         break;
       case TxType.transfer:
         color = Colors.blueGrey;
         amountColor = Colors.blueGrey;
-        title = tx.note.isNotEmpty ? tx.note : '${from?.name ?? '?'} → ${to?.name ?? '?'}';
-        subtitle = '${dateTimeFormat.format(tx.date)} · ${from?.name ?? '?'} → ${to?.name ?? '?'}';
-        amountText = from != null ? formatAmount(tx.amount, from.currency) : '${tx.amount}';
+        title = tx.note.isNotEmpty
+            ? tx.note
+            : '${from?.name ?? '?'} → ${to?.name ?? '?'}';
+        subtitle =
+            '${dateTimeFormat.format(tx.date)} · ${from?.name ?? '?'} → ${to?.name ?? '?'}';
+        amountText = from != null
+            ? formatAmount(tx.amount, from.currency)
+            : '${tx.amount}';
         break;
     }
 
@@ -94,8 +110,14 @@ class TransactionTile extends StatelessWidget {
         title: const Text('Șterge tranzacția?'),
         content: const Text('Soldul contului va fi actualizat corespunzător.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Anulează')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Șterge')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Anulează'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Șterge'),
+          ),
         ],
       ),
     );

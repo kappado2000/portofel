@@ -1,8 +1,10 @@
 import 'dart:io';
+
 import 'package:excel/excel.dart';
 import 'package:flutter/widgets.dart' show Rect;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
+
 import '../models/money_transaction.dart';
 import '../providers/money_provider.dart';
 import '../utils/formatters.dart';
@@ -49,7 +51,9 @@ class ExcelExportService {
     ]);
     for (final tx in sorted) {
       final from = provider.accountById(tx.fromAccountId);
-      final to = tx.toAccountId != null ? provider.accountById(tx.toAccountId!) : null;
+      final to = tx.toAccountId != null
+          ? provider.accountById(tx.toAccountId!)
+          : null;
       txSheet.appendRow([
         TextCellValue(dateTimeFormat.format(tx.date)),
         TextCellValue(_typeLabel(tx.type)),
@@ -58,8 +62,14 @@ class ExcelExportService {
         TextCellValue(from?.name ?? ''),
         TextCellValue(to?.name ?? ''),
         DoubleCellValue(tx.amount),
-        if (tx.convertedAmount != null) DoubleCellValue(tx.convertedAmount!) else TextCellValue(''),
-        if (tx.exchangeRate != null) DoubleCellValue(tx.exchangeRate!) else TextCellValue(''),
+        if (tx.convertedAmount != null)
+          DoubleCellValue(tx.convertedAmount!)
+        else
+          TextCellValue(''),
+        if (tx.exchangeRate != null)
+          DoubleCellValue(tx.exchangeRate!)
+        else
+          TextCellValue(''),
       ]);
     }
 
@@ -73,7 +83,8 @@ class ExcelExportService {
     if (bytes == null) return;
 
     final dir = await getTemporaryDirectory();
-    final fileName = 'portofel_export_${DateTime.now().millisecondsSinceEpoch}.xlsx';
+    final fileName =
+        'portofel_export_${DateTime.now().millisecondsSinceEpoch}.xlsx';
     final file = File('${dir.path}/$fileName');
     await file.writeAsBytes(bytes);
 
@@ -90,8 +101,8 @@ class ExcelExportService {
   }
 
   static String _typeLabel(TxType type) => switch (type) {
-        TxType.income => 'Venit',
-        TxType.expense => 'Plată',
-        TxType.transfer => 'Transfer',
-      };
+    TxType.income => 'Venit',
+    TxType.expense => 'Plată',
+    TxType.transfer => 'Transfer',
+  };
 }

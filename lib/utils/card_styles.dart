@@ -10,7 +10,9 @@ LinearGradient accountCardGradient(Account account) {
   final isBank = account.kind == AccountKind.bank;
   final isEur = account.currency == AccountCurrency.eur;
   final List<Color> colors = isBank
-      ? [Colors.indigo.shade300, Colors.indigo.shade600]
+      ? (isEur
+            ? [Colors.red.shade400, Colors.deepPurple.shade600]
+            : [Colors.indigo.shade300, Colors.indigo.shade600])
       : (isEur
             ? [Colors.teal.shade300, Colors.teal.shade600]
             : [Colors.orange.shade300, Colors.orange.shade700]);

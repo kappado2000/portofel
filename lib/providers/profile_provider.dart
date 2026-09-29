@@ -1,8 +1,10 @@
 import 'dart:convert';
+
 import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:uuid/uuid.dart';
+
 import '../models/profile.dart';
 
 /// Gestionează profilurile (persoanele) care pot folosi aplicația pe acest
@@ -43,7 +45,9 @@ class ProfileProvider extends ChangeNotifier {
     await Hive.initFlutter();
     _profilesBox = await Hive.openBox('profiles');
     _metaBox = await Hive.openBox('app_meta');
-    _profiles = _profilesBox.values.map((m) => Profile.fromMap(Map.from(m))).toList();
+    _profiles = _profilesBox.values
+        .map((m) => Profile.fromMap(Map.from(m)))
+        .toList();
     _activeProfileId = _metaBox.get('activeProfileId') as String?;
     if (_activeProfileId != null && byId(_activeProfileId!) == null) {
       _activeProfileId = null;
@@ -51,15 +55,15 @@ class ProfileProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  String _hash(String value) =>
-      sha256.convert(utf8.encode('portofel_salt::${value.trim().toLowerCase()}')).toString();
+  String _hash(String value) => sha256
+      .convert(utf8.encode('portofel_salt::${value.trim().toLowerCase()}'))
+      .toString();
 
-  Future<Profile> createProfile({required String name, required String pin}) async {
-    final profile = Profile(
-      id: _uuid.v4(),
-      name: name,
-      pinHash: _hash(pin),
-    );
+  Future<Profile> createProfile({
+    required String name,
+    required String pin,
+  }) async {
+    final profile = Profile(id: _uuid.v4(), name: name, pinHash: _hash(pin));
     _profiles.add(profile);
     await _profilesBox.put(profile.id, profile.toMap());
     notifyListeners();
@@ -74,7 +78,8 @@ class ProfileProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  bool hasSecurityAnswer(String profileId) => byId(profileId)?.securityAnswerHash != null;
+  bool hasSecurityAnswer(String profileId) =>
+      byId(profileId)?.securityAnswerHash != null;
 
   bool verifyPin(String profileId, String pin) {
     final profile = byId(profileId);

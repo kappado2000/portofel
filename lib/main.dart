@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import 'providers/money_provider.dart';
 import 'providers/profile_provider.dart';
 import 'screens/home_screen.dart';
@@ -80,7 +81,8 @@ class _AuthGateState extends State<AuthGate> {
   Widget build(BuildContext context) {
     final profileProvider = context.watch<ProfileProvider>();
 
-    if (!profileProvider.isUnlocked || profileProvider.activeProfileId == null) {
+    if (!profileProvider.isUnlocked ||
+        profileProvider.activeProfileId == null) {
       _loadedProfileId = null;
       return const LockScreen();
     }
