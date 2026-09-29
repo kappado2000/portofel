@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+
 import '../providers/profile_provider.dart';
 import '../services/biometric_service.dart';
 
@@ -121,9 +122,17 @@ class _LockScreenState extends State<LockScreen> {
     switch (_stage) {
       case _Stage.pickProfile:
         return [
-          Icon(Icons.people_outline, size: 56, color: Theme.of(context).colorScheme.primary),
+          Icon(
+            Icons.people_outline,
+            size: 56,
+            color: Theme.of(context).colorScheme.primary,
+          ),
           const SizedBox(height: 16),
-          Text('Cine ești?', style: Theme.of(context).textTheme.titleLarge, textAlign: TextAlign.center),
+          Text(
+            'Cine ești?',
+            style: Theme.of(context).textTheme.titleLarge,
+            textAlign: TextAlign.center,
+          ),
           const SizedBox(height: 16),
           ...provider.profiles.map(
             (p) => Card(
@@ -154,9 +163,17 @@ class _LockScreenState extends State<LockScreen> {
 
       case _Stage.createName:
         return [
-          Icon(Icons.person_add_alt, size: 56, color: Theme.of(context).colorScheme.primary),
+          Icon(
+            Icons.person_add_alt,
+            size: 56,
+            color: Theme.of(context).colorScheme.primary,
+          ),
           const SizedBox(height: 16),
-          Text('Cont nou', style: Theme.of(context).textTheme.titleLarge, textAlign: TextAlign.center),
+          Text(
+            'Cont nou',
+            style: Theme.of(context).textTheme.titleLarge,
+            textAlign: TextAlign.center,
+          ),
           const SizedBox(height: 8),
           Text(
             'Cum te numești?',
@@ -170,13 +187,19 @@ class _LockScreenState extends State<LockScreen> {
             autofocus: true,
             textCapitalization: TextCapitalization.words,
             textAlign: TextAlign.center,
-            decoration: InputDecoration(errorText: _error, hintText: 'Numele tău'),
+            decoration: InputDecoration(
+              errorText: _error,
+              hintText: 'Numele tău',
+            ),
             onSubmitted: (_) => _submitName(),
           ),
           const SizedBox(height: 16),
           SizedBox(
             width: double.infinity,
-            child: FilledButton(onPressed: _submitName, child: const Text('Continuă')),
+            child: FilledButton(
+              onPressed: _submitName,
+              child: const Text('Continuă'),
+            ),
           ),
           if (provider.profiles.isNotEmpty) ...[
             const SizedBox(height: 8),
@@ -194,7 +217,8 @@ class _LockScreenState extends State<LockScreen> {
         return _pinFieldStage(
           icon: Icons.lock_outline,
           title: 'Setează o parolă de acces',
-          subtitle: 'Parola protejează accesul la profilul "${_pendingName ?? provider.byId(_pendingProfileId ?? '')?.name ?? ''}".',
+          subtitle:
+              'Parola protejează accesul la profilul "${_pendingName ?? provider.byId(_pendingProfileId ?? '')?.name ?? ''}".',
           controller: _pinController,
           buttonLabel: 'Continuă',
           onSubmit: _submitFirstPin,
@@ -212,7 +236,11 @@ class _LockScreenState extends State<LockScreen> {
 
       case _Stage.setupSecurity:
         return [
-          Icon(Icons.help_outline, size: 56, color: Theme.of(context).colorScheme.primary),
+          Icon(
+            Icons.help_outline,
+            size: 56,
+            color: Theme.of(context).colorScheme.primary,
+          ),
           const SizedBox(height: 16),
           Text(
             'Întrebare de securitate',
@@ -239,7 +267,10 @@ class _LockScreenState extends State<LockScreen> {
             keyboardType: TextInputType.text,
             textCapitalization: TextCapitalization.words,
             textAlign: TextAlign.center,
-            decoration: InputDecoration(errorText: _error, hintText: 'Răspunsul tău'),
+            decoration: InputDecoration(
+              errorText: _error,
+              hintText: 'Răspunsul tău',
+            ),
             onSubmitted: (_) => _submitSecurityAnswerSetup(),
           ),
           const SizedBox(height: 16),
@@ -261,8 +292,11 @@ class _LockScreenState extends State<LockScreen> {
           controller: _pinController,
           buttonLabel: 'Deblochează',
           onSubmit: () => _submitLogin(provider),
+          onChanged: (pin) => _tryAutoLogin(pin, provider),
           extra: [
-            if (profile != null && profile.biometricEnabled && _biometricAvailable) ...[
+            if (profile != null &&
+                profile.biometricEnabled &&
+                _biometricAvailable) ...[
               const SizedBox(height: 12),
               OutlinedButton.icon(
                 onPressed: () async {
@@ -296,7 +330,11 @@ class _LockScreenState extends State<LockScreen> {
       case _Stage.forgotAnswer:
         final hasAnswer = provider.hasSecurityAnswer(_pendingProfileId ?? '');
         return [
-          Icon(Icons.help_outline, size: 56, color: Theme.of(context).colorScheme.primary),
+          Icon(
+            Icons.help_outline,
+            size: 56,
+            color: Theme.of(context).colorScheme.primary,
+          ),
           const SizedBox(height: 16),
           Text(
             'Recuperare parolă',
@@ -324,7 +362,10 @@ class _LockScreenState extends State<LockScreen> {
               keyboardType: TextInputType.text,
               textCapitalization: TextCapitalization.words,
               textAlign: TextAlign.center,
-              decoration: InputDecoration(errorText: _error, hintText: 'Răspunsul tău'),
+              decoration: InputDecoration(
+                errorText: _error,
+                hintText: 'Răspunsul tău',
+              ),
               onSubmitted: (_) => _submitForgotAnswer(provider),
             ),
             const SizedBox(height: 16),
@@ -356,15 +397,24 @@ class _LockScreenState extends State<LockScreen> {
     required TextEditingController controller,
     required String buttonLabel,
     required VoidCallback onSubmit,
+    ValueChanged<String>? onChanged,
     List<Widget> extra = const [],
   }) {
     return [
       Icon(icon, size: 56, color: Theme.of(context).colorScheme.primary),
       const SizedBox(height: 16),
-      Text(title, style: Theme.of(context).textTheme.titleLarge, textAlign: TextAlign.center),
+      Text(
+        title,
+        style: Theme.of(context).textTheme.titleLarge,
+        textAlign: TextAlign.center,
+      ),
       if (subtitle != null) ...[
         const SizedBox(height: 8),
-        Text(subtitle, style: Theme.of(context).textTheme.bodySmall, textAlign: TextAlign.center),
+        Text(
+          subtitle,
+          style: Theme.of(context).textTheme.bodySmall,
+          textAlign: TextAlign.center,
+        ),
       ],
       const SizedBox(height: 24),
       TextField(
@@ -380,7 +430,12 @@ class _LockScreenState extends State<LockScreen> {
         maxLength: 6,
         textAlign: TextAlign.center,
         style: const TextStyle(fontSize: 24, letterSpacing: 8),
-        decoration: InputDecoration(counterText: '', errorText: _error, hintText: '••••'),
+        decoration: InputDecoration(
+          counterText: '',
+          errorText: _error,
+          hintText: '••••',
+        ),
+        onChanged: onChanged,
         onSubmitted: (_) => onSubmit(),
       ),
       const SizedBox(height: 16),
@@ -444,7 +499,10 @@ class _LockScreenState extends State<LockScreen> {
       return;
     }
 
-    final profile = await provider.createProfile(name: _pendingName!, pin: confirm);
+    final profile = await provider.createProfile(
+      name: _pendingName!,
+      pin: confirm,
+    );
     _pendingProfileId = profile.id;
     if (!mounted) return;
     setState(() {
@@ -465,6 +523,23 @@ class _LockScreenState extends State<LockScreen> {
     await provider.setSecurityAnswer(_pendingProfileId!, answer);
     if (!mounted) return;
     _finishLogin(provider);
+  }
+
+  /// Deblochează automat de îndată ce codul introdus e complet și corect —
+  /// fără să mai fie nevoie de apăsarea butonului "Deblochează". Sub 6 cifre
+  /// (lungimea maximă) o potrivire greșită nu arată eroare, ca să nu clipească
+  /// mesajul în timp ce userul încă tastează un cod mai lung.
+  void _tryAutoLogin(String pin, ProfileProvider provider) {
+    if (pin.length < 4) return;
+    if (provider.verifyPin(_pendingProfileId ?? '', pin)) {
+      _finishLogin(provider);
+    } else if (pin.length >= 6) {
+      setState(() {
+        _error = 'Parolă incorectă';
+        _pinController.clear();
+      });
+      _refocusField();
+    }
   }
 
   void _submitLogin(ProfileProvider provider) {

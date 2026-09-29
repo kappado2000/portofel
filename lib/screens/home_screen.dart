@@ -162,9 +162,15 @@ class _HomeScreenState extends State<HomeScreen> {
                 children: [
                   Text(
                     'Conturi',
-                    style: Theme.of(context).textTheme.titleMedium,
+                    style: Theme.of(context).textTheme.titleSmall,
                   ),
                   SegmentedButton<_CurrencyFilter>(
+                    style: SegmentedButton.styleFrom(
+                      visualDensity: VisualDensity.compact,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      textStyle: Theme.of(context).textTheme.labelSmall,
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                    ),
                     segments: const [
                       ButtonSegment(
                         value: _CurrencyFilter.all,
@@ -220,9 +226,15 @@ class _HomeScreenState extends State<HomeScreen> {
                 children: [
                   Text(
                     'Tranzacții',
-                    style: Theme.of(context).textTheme.titleMedium,
+                    style: Theme.of(context).textTheme.titleSmall,
                   ),
                   SegmentedButton<_TxFilter>(
+                    style: SegmentedButton.styleFrom(
+                      visualDensity: VisualDensity.compact,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      textStyle: Theme.of(context).textTheme.labelSmall,
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                    ),
                     segments: const [
                       ButtonSegment(value: _TxFilter.all, label: Text('Toate')),
                       ButtonSegment(
