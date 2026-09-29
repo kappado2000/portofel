@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../models/account.dart';
 import '../providers/money_provider.dart';
 import '../utils/account_actions.dart';
@@ -19,7 +20,11 @@ class FamilyAccountsScreen extends StatelessWidget {
     final accounts = provider.familyAccounts;
     final accountIds = accounts.map((a) => a.id).toSet();
     final recentTx = provider.transactions
-        .where((t) => accountIds.contains(t.fromAccountId) || accountIds.contains(t.toAccountId))
+        .where(
+          (t) =>
+              accountIds.contains(t.fromAccountId) ||
+              accountIds.contains(t.toAccountId),
+        )
         .take(10)
         .toList();
 
@@ -67,15 +72,16 @@ class FamilyAccountsScreen extends StatelessWidget {
                       children: [
                         Text(
                           'Total familie',
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleSmall
-                              ?.copyWith(color: Colors.white.withValues(alpha: 0.9)),
+                          style: Theme.of(context).textTheme.titleSmall
+                              ?.copyWith(
+                                color: Colors.white.withValues(alpha: 0.9),
+                              ),
                         ),
                         const SizedBox(height: 6),
                         AmountText(
                           '${formatNumber(provider.totalInEur(group: AccountGroup.family))} €',
-                          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                          style: Theme.of(context).textTheme.headlineSmall
+                              ?.copyWith(
                                 fontWeight: FontWeight.bold,
                                 color: Colors.white,
                               ),
@@ -83,10 +89,10 @@ class FamilyAccountsScreen extends StatelessWidget {
                         const SizedBox(height: 2),
                         Text(
                           '≈ ${formatNumber(provider.totalInRon(group: AccountGroup.family))} lei',
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodySmall
-                              ?.copyWith(color: Colors.white.withValues(alpha: 0.85)),
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                color: Colors.white.withValues(alpha: 0.85),
+                              ),
                         ),
                       ],
                     ),
@@ -95,7 +101,10 @@ class FamilyAccountsScreen extends StatelessWidget {
                 const SizedBox(height: 16),
                 _reorderableFamilyList(context, provider, accounts),
                 const SizedBox(height: 24),
-                Text('Tranzacții recente', style: Theme.of(context).textTheme.titleMedium),
+                Text(
+                  'Tranzacții',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
                 const SizedBox(height: 8),
                 if (recentTx.isEmpty)
                   const Padding(
@@ -104,7 +113,11 @@ class FamilyAccountsScreen extends StatelessWidget {
                   )
                 else
                   ...recentTx.indexed.map(
-                    (e) => TransactionTile(tx: e.$2, provider: provider, index: e.$1 + 1),
+                    (e) => TransactionTile(
+                      tx: e.$2,
+                      provider: provider,
+                      index: e.$1 + 1,
+                    ),
                   ),
               ],
             ),
@@ -134,7 +147,8 @@ class FamilyAccountsScreen extends StatelessWidget {
             child: Dismissible(
               key: ValueKey('dismiss_${account.id}'),
               direction: DismissDirection.endToStart,
-              confirmDismiss: (_) => confirmDeleteAccount(context, provider, account),
+              confirmDismiss: (_) =>
+                  confirmDeleteAccount(context, provider, account),
               background: Container(
                 color: Colors.red,
                 alignment: Alignment.centerRight,

@@ -14,7 +14,6 @@ import '../widgets/transaction_tile.dart';
 import 'accounts_screen.dart';
 import 'add_transaction_screen.dart';
 import 'family_accounts_screen.dart';
-import 'history_screen.dart';
 import 'settings_screen.dart';
 
 enum _CurrencyFilter { all, ron, eur }
@@ -218,30 +217,26 @@ class _HomeScreenState extends State<HomeScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'Tranzacții recente',
+                    'Tranzacții',
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
-                  TextButton(
-                    onPressed: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const HistoryScreen()),
-                    ),
-                    child: const Text('Vezi tot'),
+                  SegmentedButton<_TxFilter>(
+                    segments: const [
+                      ButtonSegment(value: _TxFilter.all, label: Text('Toate')),
+                      ButtonSegment(
+                        value: _TxFilter.income,
+                        label: Text('Venituri'),
+                      ),
+                      ButtonSegment(
+                        value: _TxFilter.expense,
+                        label: Text('Plăți'),
+                      ),
+                    ],
+                    selected: {_txFilter},
+                    onSelectionChanged: (s) =>
+                        setState(() => _txFilter = s.first),
                   ),
                 ],
-              ),
-              const SizedBox(height: 4),
-              SegmentedButton<_TxFilter>(
-                segments: const [
-                  ButtonSegment(value: _TxFilter.all, label: Text('Toate')),
-                  ButtonSegment(
-                    value: _TxFilter.income,
-                    label: Text('Venituri'),
-                  ),
-                  ButtonSegment(value: _TxFilter.expense, label: Text('Plăți')),
-                ],
-                selected: {_txFilter},
-                onSelectionChanged: (s) => setState(() => _txFilter = s.first),
               ),
               const SizedBox(height: 8),
               if (recentTx.isEmpty)
