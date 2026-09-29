@@ -31,15 +31,15 @@ class TransactionTile extends StatelessWidget {
     Color amountColor;
     // Transferurile primesc o tentă de fundal mai închisă decât venituri/plăți,
     // ca să se distingă clar drept o categorie separată, neutră.
-    double backgroundAlpha = 0.08;
+    double backgroundAlpha = 0.14;
     String title;
     String subtitle;
     String amountText;
 
     switch (tx.type) {
       case TxType.income:
-        color = Colors.green;
-        amountColor = Colors.green.shade800;
+        color = Colors.green.shade700;
+        amountColor = Colors.green.shade900;
         title = tx.note.isNotEmpty
             ? tx.note
             : (tx.category.isEmpty ? 'Venit' : tx.category);
@@ -49,8 +49,8 @@ class TransactionTile extends StatelessWidget {
             '+${from != null ? formatAmount(tx.amount, from.currency) : tx.amount}';
         break;
       case TxType.expense:
-        color = Colors.red;
-        amountColor = Colors.red.shade800;
+        color = Colors.red.shade700;
+        amountColor = Colors.red.shade900;
         title = tx.note.isNotEmpty
             ? tx.note
             : (tx.category.isEmpty ? 'Plată' : tx.category);
@@ -60,9 +60,9 @@ class TransactionTile extends StatelessWidget {
             '-${from != null ? formatAmount(tx.amount, from.currency) : tx.amount}';
         break;
       case TxType.transfer:
-        color = Colors.blueGrey.shade700;
-        amountColor = Colors.blueGrey.shade800;
-        backgroundAlpha = 0.16;
+        color = Colors.blueGrey.shade800;
+        amountColor = Colors.blueGrey.shade900;
+        backgroundAlpha = 0.24;
         title = tx.note.isNotEmpty
             ? tx.note
             : '${from?.name ?? '?'} → ${to?.name ?? '?'}';
