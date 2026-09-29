@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../models/account.dart';
 
 /// Gradient de fundal pentru cardul unui cont, pe baza tipului/valutei —
@@ -11,8 +12,8 @@ LinearGradient accountCardGradient(Account account) {
   final List<Color> colors = isBank
       ? [Colors.indigo.shade300, Colors.indigo.shade600]
       : (isEur
-          ? [Colors.teal.shade300, Colors.teal.shade600]
-          : [Colors.brown.shade300, Colors.brown.shade600]);
+            ? [Colors.teal.shade300, Colors.teal.shade600]
+            : [Colors.orange.shade300, Colors.orange.shade700]);
   return LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
@@ -30,13 +31,13 @@ const heroCardGradient = LinearGradient(
 );
 
 BoxDecoration heroCardDecoration({double radius = 20}) => BoxDecoration(
-      gradient: heroCardGradient,
-      borderRadius: BorderRadius.circular(radius),
-      boxShadow: [
-        BoxShadow(
-          color: const Color(0xFF3949AB).withValues(alpha: 0.25),
-          blurRadius: 12,
-          offset: const Offset(0, 6),
-        ),
-      ],
-    );
+  gradient: heroCardGradient,
+  borderRadius: BorderRadius.circular(radius),
+  boxShadow: [
+    BoxShadow(
+      color: const Color(0xFF3949AB).withValues(alpha: 0.25),
+      blurRadius: 12,
+      offset: const Offset(0, 6),
+    ),
+  ],
+);

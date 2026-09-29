@@ -1,3 +1,5 @@
+import 'dart:ui' show ImageFilter;
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -277,82 +279,77 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _venitPlataBar(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final fillTop = isDark
-        ? const Color(0xFF223027).withValues(alpha: 0.92)
-        : Colors.white.withValues(alpha: 0.92);
+        ? const Color(0xFF223027).withValues(alpha: 0.62)
+        : Colors.white.withValues(alpha: 0.58);
     final fillBottom = isDark
-        ? const Color(0xFF16201A).withValues(alpha: 0.88)
-        : Colors.white.withValues(alpha: 0.86);
+        ? const Color(0xFF16201A).withValues(alpha: 0.48)
+        : Colors.white.withValues(alpha: 0.40);
     final edge = isDark
         ? Colors.white.withValues(alpha: 0.14)
-        : Colors.white.withValues(alpha: 0.9);
+        : Colors.white.withValues(alpha: 0.85);
     const radius = 32.0;
 
-    // Fără BackdropFilter/blur: pe iOS (motorul grafic Impeller) blur-ul din
-    // acest baner "scăpa" din ClipRRect și acoperea tot ecranul, indiferent
-    // de RepaintBoundary. Fundalul semi-opac simplu de mai jos păstrează
-    // aspectul de sticlă fără riscul acelui bug de randare.
+    // Blurul e sigur acum: banerul nu mai e bottomNavigationBar + extendBody
+    // (combinația care cauza bug-ul de randare pe iOS), ci un widget obișnuit
+    // suprapus peste listă printr-un Stack.
     return SafeArea(
       top: false,
       minimum: const EdgeInsets.only(bottom: 8),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(14, 6, 14, 0),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [fillTop, fillBottom],
-            ),
-            borderRadius: BorderRadius.circular(radius),
-            border: Border.all(color: edge, width: 1),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.15),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(radius),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [fillTop, fillBottom],
+                ),
+                borderRadius: BorderRadius.circular(radius),
+                border: Border.all(color: edge, width: 1),
               ),
-            ],
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(radius),
-            child: Row(
-              children: [
-                Expanded(
-                  child: _GlassBarButton(
-                    icon: Icons.add,
-                    label: 'Venit',
-                    color: Colors.green.shade800,
-                    borderRadius: const BorderRadius.horizontal(
-                      left: Radius.circular(radius),
-                    ),
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) =>
-                            const AddTransactionScreen(initialTab: 0),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _GlassBarButton(
+                      icon: Icons.add,
+                      label: 'Venit',
+                      color: Colors.green.shade800,
+                      borderRadius: const BorderRadius.horizontal(
+                        left: Radius.circular(radius),
+                      ),
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              const AddTransactionScreen(initialTab: 0),
+                        ),
                       ),
                     ),
                   ),
-                ),
-                VerticalDivider(width: 1, thickness: 1, color: edge),
-                Expanded(
-                  child: _GlassBarButton(
-                    icon: Icons.remove,
-                    label: 'Plată',
-                    color: Colors.red.shade800,
-                    borderRadius: const BorderRadius.horizontal(
-                      right: Radius.circular(radius),
-                    ),
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) =>
-                            const AddTransactionScreen(initialTab: 1),
+                  VerticalDivider(width: 1, thickness: 1, color: edge),
+                  Expanded(
+                    child: _GlassBarButton(
+                      icon: Icons.remove,
+                      label: 'Plată',
+                      color: Colors.red.shade800,
+                      borderRadius: const BorderRadius.horizontal(
+                        right: Radius.circular(radius),
+                      ),
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              const AddTransactionScreen(initialTab: 1),
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
