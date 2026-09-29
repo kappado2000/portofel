@@ -7,10 +7,6 @@ class AccountCard extends StatelessWidget {
   final Account account;
   final VoidCallback? onTap;
 
-  /// Mâner opțional de drag pentru reordonare (ex. un
-  /// `ReorderableDragStartListener`), afișat la finalul rândului.
-  final Widget? trailingHandle;
-
   /// Când e setat, apare un buton de editare separat — folosit pe ecrane
   /// unde tap-ul pe card face altceva (ex. deschide detaliul contului),
   /// ca editarea (nume/grup) să rămână accesibilă separat.
@@ -20,7 +16,6 @@ class AccountCard extends StatelessWidget {
     super.key,
     required this.account,
     this.onTap,
-    this.trailingHandle,
     this.onEdit,
   });
 
@@ -74,7 +69,6 @@ class AccountCard extends StatelessWidget {
                   visualDensity: VisualDensity.compact,
                   onPressed: onEdit,
                 ),
-              ?trailingHandle,
             ],
           ),
         ),

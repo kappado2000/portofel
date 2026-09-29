@@ -115,34 +115,31 @@ class FamilyAccountsScreen extends StatelessWidget {
           provider.reorderAccounts(AccountGroup.family, oldIndex, newIndex),
       itemBuilder: (context, index) {
         final account = accounts[index];
-        return Padding(
+        // Apăsare lungă oriunde pe card pornește drag-ul de reordonare.
+        return ReorderableDelayedDragStartListener(
           key: ValueKey(account.id),
-          padding: const EdgeInsets.only(bottom: 8),
-          child: Dismissible(
-            key: ValueKey('dismiss_${account.id}'),
-            direction: DismissDirection.endToStart,
-            confirmDismiss: (_) => confirmDeleteAccount(context, provider, account),
-            background: Container(
-              color: Colors.red,
-              alignment: Alignment.centerRight,
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: const Icon(Icons.delete, color: Colors.white),
-            ),
-            child: AccountCard(
-              account: account,
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => AccountDetailScreen(accountId: account.id),
-                ),
+          index: index,
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Dismissible(
+              key: ValueKey('dismiss_${account.id}'),
+              direction: DismissDirection.endToStart,
+              confirmDismiss: (_) => confirmDeleteAccount(context, provider, account),
+              background: Container(
+                color: Colors.red,
+                alignment: Alignment.centerRight,
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: const Icon(Icons.delete, color: Colors.white),
               ),
-              onEdit: () => editAccountDialog(context, provider, account),
-              trailingHandle: ReorderableDragStartListener(
-                index: index,
-                child: const Padding(
-                  padding: EdgeInsets.only(left: 4),
-                  child: Icon(Icons.drag_handle),
+              child: AccountCard(
+                account: account,
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => AccountDetailScreen(accountId: account.id),
+                  ),
                 ),
+                onEdit: () => editAccountDialog(context, provider, account),
               ),
             ),
           ),

@@ -80,28 +80,27 @@ class AccountsScreen extends StatelessWidget {
       onReorderItem: (oldIndex, newIndex) => provider.reorderAccounts(group, oldIndex, newIndex),
       itemBuilder: (context, index) {
         final account = accounts[index];
-        return Padding(
+        // Apăsare lungă oriunde pe card pornește drag-ul de reordonare (nu
+        // mai există un mâner separat) — tap-ul scurt tot deschide editarea,
+        // iar swipe-ul orizontal tot șterge, cele trei gesturi coexistă.
+        return ReorderableDelayedDragStartListener(
           key: ValueKey(account.id),
-          padding: const EdgeInsets.only(bottom: 8),
-          child: Dismissible(
-            key: ValueKey('dismiss_${account.id}'),
-            direction: DismissDirection.endToStart,
-            confirmDismiss: (_) => confirmDeleteAccount(context, provider, account),
-            background: Container(
-              color: Colors.red,
-              alignment: Alignment.centerRight,
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: const Icon(Icons.delete, color: Colors.white),
-            ),
-            child: AccountCard(
-              account: account,
-              onTap: () => editAccountDialog(context, provider, account),
-              trailingHandle: ReorderableDragStartListener(
-                index: index,
-                child: const Padding(
-                  padding: EdgeInsets.only(left: 4),
-                  child: Icon(Icons.drag_handle),
-                ),
+          index: index,
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Dismissible(
+              key: ValueKey('dismiss_${account.id}'),
+              direction: DismissDirection.endToStart,
+              confirmDismiss: (_) => confirmDeleteAccount(context, provider, account),
+              background: Container(
+                color: Colors.red,
+                alignment: Alignment.centerRight,
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: const Icon(Icons.delete, color: Colors.white),
+              ),
+              child: AccountCard(
+                account: account,
+                onTap: () => editAccountDialog(context, provider, account),
               ),
             ),
           ),

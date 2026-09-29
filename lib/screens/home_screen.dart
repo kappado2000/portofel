@@ -1,3 +1,5 @@
+import 'dart:ui' show ImageFilter;
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/account.dart';
@@ -100,6 +102,8 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
+      extendBody: true,
+      bottomNavigationBar: _venitPlataBar(context),
       body: RefreshIndicator(
         onRefresh: () async {},
         child: ListView(
@@ -161,47 +165,17 @@ class _HomeScreenState extends State<HomeScreen> {
                 padding: EdgeInsets.symmetric(vertical: 12),
                 child: Text('Niciun cont în această valută'),
               )
+            else if (_filter == _CurrencyFilter.all)
+              // Reordonabilă doar când se văd toate conturile — indicii din
+              // listă corespund atunci exact cu ordinea reală (sortOrder);
+              // pe un subset filtrat (doar Lei/doar Euro) indicii nu s-ar
+              // mai potrivi cu poziția reală din grup.
+              _reorderablePersonalAccounts(context, provider, visibleAccounts)
             else
               ...visibleAccounts.map((a) => Padding(
                     padding: const EdgeInsets.only(bottom: 8),
                     child: AccountCard(account: a),
                   )),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    style: OutlinedButton.styleFrom(
-                      backgroundColor: Colors.green.withValues(alpha: 0.15),
-                      foregroundColor: Colors.green.shade800,
-                      side: BorderSide(color: Colors.green.shade400),
-                    ),
-                    onPressed: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const AddTransactionScreen(initialTab: 0)),
-                    ),
-                    icon: const Icon(Icons.add),
-                    label: const Text('Venit'),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    style: OutlinedButton.styleFrom(
-                      backgroundColor: Colors.red.withValues(alpha: 0.15),
-                      foregroundColor: Colors.red.shade800,
-                      side: BorderSide(color: Colors.red.shade400),
-                    ),
-                    onPressed: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const AddTransactionScreen(initialTab: 1)),
-                    ),
-                    icon: const Icon(Icons.remove),
-                    label: const Text('Plată'),
-                  ),
-                ),
-              ],
-            ),
             const SizedBox(height: 24),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -236,6 +210,152 @@ class _HomeScreenState extends State<HomeScreen> {
               ...recentTx.indexed.map(
                 (e) => TransactionTile(tx: e.$2, provider: provider, index: e.$1 + 1),
               ),
+            // Spațiu ca ultimele elemente să nu rămână ascunse sub banerul
+            // plutitor Venit/Plată (extendBody face conținutul să treacă pe
+            // sub el).
+            SizedBox(height: MediaQuery.paddingOf(context).bottom + 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Baner semi-transparent, în stil frosted-glass, plutitor în partea de
+  /// jos a ecranului — împărțit în două jumătăți (Venit/Plată), la fel ca
+  /// bara de navigare de jos din Calorii Fit.
+  Widget _venitPlataBar(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final fillTop = isDark
+        ? const Color(0xFF223027).withValues(alpha: 0.62)
+        : Colors.white.withValues(alpha: 0.58);
+    final fillBottom = isDark
+        ? const Color(0xFF16201A).withValues(alpha: 0.48)
+        : Colors.white.withValues(alpha: 0.40);
+    final edge = isDark
+        ? Colors.white.withValues(alpha: 0.14)
+        : Colors.white.withValues(alpha: 0.85);
+    const radius = 32.0;
+
+    return SafeArea(
+      top: false,
+      minimum: const EdgeInsets.only(bottom: 8),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 6, 14, 0),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(radius),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [fillTop, fillBottom],
+                ),
+                borderRadius: BorderRadius.circular(radius),
+                border: Border.all(color: edge, width: 1),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _GlassBarButton(
+                      icon: Icons.add,
+                      label: 'Venit',
+                      color: Colors.green.shade800,
+                      borderRadius: const BorderRadius.horizontal(left: Radius.circular(radius)),
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const AddTransactionScreen(initialTab: 0)),
+                      ),
+                    ),
+                  ),
+                  VerticalDivider(width: 1, thickness: 1, color: edge),
+                  Expanded(
+                    child: _GlassBarButton(
+                      icon: Icons.remove,
+                      label: 'Plată',
+                      color: Colors.red.shade800,
+                      borderRadius: const BorderRadius.horizontal(right: Radius.circular(radius)),
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const AddTransactionScreen(initialTab: 1)),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _reorderablePersonalAccounts(
+    BuildContext context,
+    MoneyProvider provider,
+    List<Account> accounts,
+  ) {
+    return ReorderableListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      buildDefaultDragHandles: false,
+      itemCount: accounts.length,
+      onReorderItem: (oldIndex, newIndex) =>
+          provider.reorderAccounts(AccountGroup.personal, oldIndex, newIndex),
+      itemBuilder: (context, index) {
+        final account = accounts[index];
+        // Apăsare lungă oriunde pe card pornește drag-ul de reordonare.
+        return ReorderableDelayedDragStartListener(
+          key: ValueKey(account.id),
+          index: index,
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: AccountCard(account: account),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// O jumătate a banerului Venit/Plată — icon + etichetă colorate, pe fond
+/// transparent (culoarea vine din textul/iconul propriu, nu dintr-un
+/// fundal plin, ca să se vadă efectul de sticlă al banerului din spate).
+class _GlassBarButton extends StatelessWidget {
+  const _GlassBarButton({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.borderRadius,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+  final BorderRadius borderRadius;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: borderRadius,
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: color, size: 20),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: Theme.of(context)
+                  .textTheme
+                  .titleSmall
+                  ?.copyWith(color: color, fontWeight: FontWeight.bold),
+            ),
           ],
         ),
       ),
