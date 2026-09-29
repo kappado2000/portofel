@@ -29,6 +29,9 @@ class TransactionTile extends StatelessWidget {
     // Same dark shade the Venit/Plată buttons use for their own text, so the
     // amount in this list reads with the exact same color as those buttons.
     Color amountColor;
+    // Transferurile primesc o tentă de fundal mai închisă decât venituri/plăți,
+    // ca să se distingă clar drept o categorie separată, neutră.
+    double backgroundAlpha = 0.08;
     String title;
     String subtitle;
     String amountText;
@@ -57,8 +60,9 @@ class TransactionTile extends StatelessWidget {
             '-${from != null ? formatAmount(tx.amount, from.currency) : tx.amount}';
         break;
       case TxType.transfer:
-        color = Colors.blueGrey;
-        amountColor = Colors.blueGrey;
+        color = Colors.blueGrey.shade700;
+        amountColor = Colors.blueGrey.shade800;
+        backgroundAlpha = 0.16;
         title = tx.note.isNotEmpty
             ? tx.note
             : '${from?.name ?? '?'} → ${to?.name ?? '?'}';
@@ -84,7 +88,7 @@ class TransactionTile extends StatelessWidget {
       child: Container(
         margin: const EdgeInsets.only(bottom: 6),
         decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.08),
+          color: color.withValues(alpha: backgroundAlpha),
           borderRadius: BorderRadius.circular(12),
         ),
         child: ListTile(
