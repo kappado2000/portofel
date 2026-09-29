@@ -110,137 +110,162 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      extendBody: true,
-      bottomNavigationBar: _venitPlataBar(context),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
+      // Banerul Venit/Plată nu mai e bottomNavigationBar + extendBody: pe iOS
+      // (Impeller), acea combinație producea un bug de randare în care fundalul
+      // semi-transparent al banerului se întindea peste tot ecranul. Suprapus
+      // direct peste listă printr-un Stack, banerul e doar un widget obișnuit
+      // poziționat deasupra, fără nicio interacțiune specială de compunere.
+      body: Stack(
         children: [
-          Container(
-            decoration: heroCardDecoration(),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+          ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              Container(
+                decoration: heroCardDecoration(),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Total estimat',
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          color: Colors.white.withValues(alpha: 0.9),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      AmountText(
+                        '${formatNumber(provider.totalInEur())} €',
+                        style: Theme.of(context).textTheme.headlineSmall
+                            ?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '≈ ${formatNumber(provider.totalInRon())} lei',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Colors.white.withValues(alpha: 0.85),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'Total estimat',
+                    'Conturi',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  SegmentedButton<_CurrencyFilter>(
+                    segments: const [
+                      ButtonSegment(
+                        value: _CurrencyFilter.all,
+                        label: Text('Toate'),
+                      ),
+                      ButtonSegment(
+                        value: _CurrencyFilter.ron,
+                        label: Text('Lei'),
+                      ),
+                      ButtonSegment(
+                        value: _CurrencyFilter.eur,
+                        label: Text('Euro'),
+                      ),
+                    ],
+                    selected: {_filter},
+                    onSelectionChanged: (s) =>
+                        setState(() => _filter = s.first),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              if (_filter != _CurrencyFilter.all)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Text(
+                    'Subtotal ${_filter == _CurrencyFilter.ron ? "Lei" : "Euro"}: '
+                    '${formatAmount(filterSubtotal, _filter == _CurrencyFilter.ron ? AccountCurrency.ron : AccountCurrency.eur)}',
                     style: Theme.of(context).textTheme.titleSmall
-                        ?.copyWith(color: Colors.white.withValues(alpha: 0.9)),
+                        ?.copyWith(fontWeight: FontWeight.bold),
                   ),
-                  const SizedBox(height: 6),
-                  AmountText(
-                    '${formatNumber(provider.totalInEur())} €',
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    '≈ ${formatNumber(provider.totalInRon())} lei',
-                    style: Theme.of(context).textTheme.bodySmall
-                        ?.copyWith(color: Colors.white.withValues(alpha: 0.85)),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text('Conturi', style: Theme.of(context).textTheme.titleMedium),
-              SegmentedButton<_CurrencyFilter>(
-                segments: const [
-                  ButtonSegment(
-                    value: _CurrencyFilter.all,
-                    label: Text('Toate'),
-                  ),
-                  ButtonSegment(value: _CurrencyFilter.ron, label: Text('Lei')),
-                  ButtonSegment(
-                    value: _CurrencyFilter.eur,
-                    label: Text('Euro'),
-                  ),
-                ],
-                selected: {_filter},
-                onSelectionChanged: (s) => setState(() => _filter = s.first),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          if (_filter != _CurrencyFilter.all)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Text(
-                'Subtotal ${_filter == _CurrencyFilter.ron ? "Lei" : "Euro"}: '
-                '${formatAmount(filterSubtotal, _filter == _CurrencyFilter.ron ? AccountCurrency.ron : AccountCurrency.eur)}',
-                style: Theme.of(context).textTheme.titleSmall
-                    ?.copyWith(fontWeight: FontWeight.bold),
-              ),
-            ),
-          if (visibleAccounts.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 12),
-              child: Text('Niciun cont în această valută'),
-            )
-          else if (_filter == _CurrencyFilter.all)
-            // Reordonabilă doar când se văd toate conturile — indicii din
-            // listă corespund atunci exact cu ordinea reală (sortOrder);
-            // pe un subset filtrat (doar Lei/doar Euro) indicii nu s-ar
-            // mai potrivi cu poziția reală din grup.
-            _reorderablePersonalAccounts(context, provider, visibleAccounts)
-          else
-            ...visibleAccounts.map(
-              (a) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: AccountCard(account: a),
-              ),
-            ),
-          const SizedBox(height: 24),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Tranzacții recente',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              TextButton(
-                onPressed: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const HistoryScreen()),
                 ),
-                child: const Text('Vezi tot'),
+              if (visibleAccounts.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 12),
+                  child: Text('Niciun cont în această valută'),
+                )
+              else if (_filter == _CurrencyFilter.all)
+                // Reordonabilă doar când se văd toate conturile — indicii din
+                // listă corespund atunci exact cu ordinea reală (sortOrder);
+                // pe un subset filtrat (doar Lei/doar Euro) indicii nu s-ar
+                // mai potrivi cu poziția reală din grup.
+                _reorderablePersonalAccounts(context, provider, visibleAccounts)
+              else
+                ...visibleAccounts.map(
+                  (a) => Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: AccountCard(account: a),
+                  ),
+                ),
+              const SizedBox(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Tranzacții recente',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const HistoryScreen()),
+                    ),
+                    child: const Text('Vezi tot'),
+                  ),
+                ],
               ),
+              const SizedBox(height: 4),
+              SegmentedButton<_TxFilter>(
+                segments: const [
+                  ButtonSegment(value: _TxFilter.all, label: Text('Toate')),
+                  ButtonSegment(
+                    value: _TxFilter.income,
+                    label: Text('Venituri'),
+                  ),
+                  ButtonSegment(value: _TxFilter.expense, label: Text('Plăți')),
+                ],
+                selected: {_txFilter},
+                onSelectionChanged: (s) => setState(() => _txFilter = s.first),
+              ),
+              const SizedBox(height: 8),
+              if (recentTx.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 24),
+                  child: Center(child: Text('Nicio tranzacție încă')),
+                )
+              else
+                ...recentTx.indexed.map(
+                  (e) => TransactionTile(
+                    tx: e.$2,
+                    provider: provider,
+                    index: e.$1 + 1,
+                  ),
+                ),
+              // Spațiu ca ultimele elemente să nu rămână ascunse sub
+              // banerul plutitor Venit/Plată, suprapus peste listă.
+              SizedBox(height: MediaQuery.paddingOf(context).bottom + 80),
             ],
           ),
-          const SizedBox(height: 4),
-          SegmentedButton<_TxFilter>(
-            segments: const [
-              ButtonSegment(value: _TxFilter.all, label: Text('Toate')),
-              ButtonSegment(value: _TxFilter.income, label: Text('Venituri')),
-              ButtonSegment(value: _TxFilter.expense, label: Text('Plăți')),
-            ],
-            selected: {_txFilter},
-            onSelectionChanged: (s) => setState(() => _txFilter = s.first),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: _venitPlataBar(context),
           ),
-          const SizedBox(height: 8),
-          if (recentTx.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 24),
-              child: Center(child: Text('Nicio tranzacție încă')),
-            )
-          else
-            ...recentTx.indexed.map(
-              (e) => TransactionTile(
-                tx: e.$2,
-                provider: provider,
-                index: e.$1 + 1,
-              ),
-            ),
-          // Spațiu ca ultimele elemente să nu rămână ascunse sub banerul
-          // plutitor Venit/Plată (extendBody face conținutul să treacă pe
-          // sub el).
-          SizedBox(height: MediaQuery.paddingOf(context).bottom + 8),
         ],
       ),
     );
