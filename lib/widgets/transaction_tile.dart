@@ -92,6 +92,7 @@ class TransactionTile extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
         ),
         child: ListTile(
+          dense: true,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
@@ -108,11 +109,15 @@ class TransactionTile extends StatelessWidget {
               style: TextStyle(color: color, fontWeight: FontWeight.bold),
             ),
           ),
-          title: Text(title),
-          subtitle: Text(subtitle),
+          title: Text(title, style: const TextStyle(fontSize: 13)),
+          subtitle: Text(subtitle, style: const TextStyle(fontSize: 11)),
           trailing: AmountText(
             amountText,
-            style: TextStyle(color: amountColor, fontWeight: FontWeight.bold),
+            style: TextStyle(
+              color: amountColor,
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+            ),
           ),
         ),
       ),
