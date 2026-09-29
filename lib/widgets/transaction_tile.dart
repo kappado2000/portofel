@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/money_transaction.dart';
 import '../providers/money_provider.dart';
 import '../screens/add_transaction_screen.dart';
+import '../utils/categories.dart';
 import '../utils/formatters.dart';
 import 'amount_text.dart';
 
@@ -33,7 +34,10 @@ class TransactionTile extends StatelessWidget {
     // ca să se distingă clar drept o categorie separată, neutră.
     double backgroundAlpha = 0.14;
     String title;
-    String subtitle;
+    // Restul subtitlului, afișat după data/ora tranzacției și iconița
+    // sugestivă (categorie, sau ruta de transfer).
+    String subtitleRest;
+    IconData subtitleIcon;
     String amountText;
 
     switch (tx.type) {
@@ -43,8 +47,11 @@ class TransactionTile extends StatelessWidget {
         title = tx.note.isNotEmpty
             ? tx.note
             : (tx.category.isEmpty ? 'Venit' : tx.category);
-        subtitle =
-            '${dateTimeFormat.format(tx.date)}${tx.category.isNotEmpty ? ' · ${tx.category}' : ''}';
+        subtitleRest = tx.category;
+        subtitleIcon = categoryIcon(
+          tx.category,
+          fallback: Icons.savings_outlined,
+        );
         amountText =
             '+${from != null ? formatAmount(tx.amount, from.currency) : tx.amount}';
         break;
@@ -54,8 +61,11 @@ class TransactionTile extends StatelessWidget {
         title = tx.note.isNotEmpty
             ? tx.note
             : (tx.category.isEmpty ? 'Plată' : tx.category);
-        subtitle =
-            '${dateTimeFormat.format(tx.date)}${tx.category.isNotEmpty ? ' · ${tx.category}' : ''}';
+        subtitleRest = tx.category;
+        subtitleIcon = categoryIcon(
+          tx.category,
+          fallback: Icons.payments_outlined,
+        );
         amountText =
             '-${from != null ? formatAmount(tx.amount, from.currency) : tx.amount}';
         break;
@@ -66,8 +76,8 @@ class TransactionTile extends StatelessWidget {
         title = tx.note.isNotEmpty
             ? tx.note
             : '${from?.name ?? '?'} → ${to?.name ?? '?'}';
-        subtitle =
-            '${dateTimeFormat.format(tx.date)} · ${from?.name ?? '?'} → ${to?.name ?? '?'}';
+        subtitleRest = '${from?.name ?? '?'} → ${to?.name ?? '?'}';
+        subtitleIcon = Icons.swap_horiz;
         amountText = from != null
             ? formatAmount(tx.amount, from.currency)
             : '${tx.amount}';
@@ -110,7 +120,26 @@ class TransactionTile extends StatelessWidget {
             ),
           ),
           title: Text(title, style: const TextStyle(fontSize: 13)),
-          subtitle: Text(subtitle, style: const TextStyle(fontSize: 11)),
+          subtitle: Row(
+            children: [
+              Text(
+                dateTimeFormat.format(tx.date),
+                style: const TextStyle(fontSize: 11),
+              ),
+              const SizedBox(width: 5),
+              Icon(subtitleIcon, size: 13, color: color),
+              if (subtitleRest.isNotEmpty) ...[
+                const SizedBox(width: 5),
+                Expanded(
+                  child: Text(
+                    subtitleRest,
+                    style: const TextStyle(fontSize: 11),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ],
+          ),
           trailing: AmountText(
             amountText,
             style: TextStyle(
