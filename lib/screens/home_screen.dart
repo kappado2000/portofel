@@ -269,58 +269,64 @@ class _HomeScreenState extends State<HomeScreen> {
       minimum: const EdgeInsets.only(bottom: 8),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(14, 6, 14, 0),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(radius),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [fillTop, fillBottom],
+        // RepaintBoundary izolează stratul de blur — fără el, Impeller (motorul
+        // grafic iOS) poate extinde efectul BackdropFilter pe tot ecranul în loc
+        // să-l limiteze la ClipRRect-ul banerului (bug cunoscut Flutter/Impeller
+        // cu BackdropFilter în bottomNavigationBar + extendBody: true).
+        child: RepaintBoundary(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(radius),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [fillTop, fillBottom],
+                  ),
+                  borderRadius: BorderRadius.circular(radius),
+                  border: Border.all(color: edge, width: 1),
                 ),
-                borderRadius: BorderRadius.circular(radius),
-                border: Border.all(color: edge, width: 1),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: _GlassBarButton(
-                      icon: Icons.add,
-                      label: 'Venit',
-                      color: Colors.green.shade800,
-                      borderRadius: const BorderRadius.horizontal(
-                        left: Radius.circular(radius),
-                      ),
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) =>
-                              const AddTransactionScreen(initialTab: 0),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: _GlassBarButton(
+                        icon: Icons.add,
+                        label: 'Venit',
+                        color: Colors.green.shade800,
+                        borderRadius: const BorderRadius.horizontal(
+                          left: Radius.circular(radius),
+                        ),
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                const AddTransactionScreen(initialTab: 0),
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                  VerticalDivider(width: 1, thickness: 1, color: edge),
-                  Expanded(
-                    child: _GlassBarButton(
-                      icon: Icons.remove,
-                      label: 'Plată',
-                      color: Colors.red.shade800,
-                      borderRadius: const BorderRadius.horizontal(
-                        right: Radius.circular(radius),
-                      ),
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) =>
-                              const AddTransactionScreen(initialTab: 1),
+                    VerticalDivider(width: 1, thickness: 1, color: edge),
+                    Expanded(
+                      child: _GlassBarButton(
+                        icon: Icons.remove,
+                        label: 'Plată',
+                        color: Colors.red.shade800,
+                        borderRadius: const BorderRadius.horizontal(
+                          right: Radius.circular(radius),
+                        ),
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                const AddTransactionScreen(initialTab: 1),
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
