@@ -326,19 +326,7 @@ class _IncomeExpenseFormState extends State<_IncomeExpenseForm> {
       );
     }
 
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(widget.isIncome ? 'Venit adăugat' : 'Plată adăugată'),
-        ),
-      );
-      _amountController.clear();
-      _noteController.clear();
-      setState(() {
-        _category = null;
-        _date = DateTime.now();
-      });
-    }
+    if (mounted) Navigator.of(context).popUntil((route) => route.isFirst);
   }
 
   Future<void> _delete() async {
@@ -643,13 +631,7 @@ class _TransferFormState extends State<_TransferForm> {
       date: _date,
     );
 
-    if (mounted) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Transfer efectuat')));
-      _amountController.clear();
-      _noteController.clear();
-      setState(() => _date = DateTime.now());
-    }
+    if (mounted) Navigator.of(context).popUntil((route) => route.isFirst);
   }
 
   Future<void> _delete() async {
