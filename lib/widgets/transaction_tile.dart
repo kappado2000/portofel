@@ -81,23 +81,35 @@ class TransactionTile extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 20),
         child: const Icon(Icons.delete, color: Colors.white),
       ),
-      child: ListTile(
-        onTap: () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => AddTransactionScreen(editing: tx)),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 6),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(12),
         ),
-        leading: CircleAvatar(
-          backgroundColor: color.withValues(alpha: 0.15),
-          child: Text(
-            '$index',
-            style: TextStyle(color: color, fontWeight: FontWeight.bold),
+        child: ListTile(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
           ),
-        ),
-        title: Text(title),
-        subtitle: Text(subtitle),
-        trailing: AmountText(
-          amountText,
-          style: TextStyle(color: amountColor, fontWeight: FontWeight.bold),
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => AddTransactionScreen(editing: tx),
+            ),
+          ),
+          leading: CircleAvatar(
+            backgroundColor: color.withValues(alpha: 0.2),
+            child: Text(
+              '$index',
+              style: TextStyle(color: color, fontWeight: FontWeight.bold),
+            ),
+          ),
+          title: Text(title),
+          subtitle: Text(subtitle),
+          trailing: AmountText(
+            amountText,
+            style: TextStyle(color: amountColor, fontWeight: FontWeight.bold),
+          ),
         ),
       ),
     );
