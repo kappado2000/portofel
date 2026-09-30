@@ -58,7 +58,9 @@ class TransactionTile extends StatelessWidget {
         title = tx.note.isNotEmpty
             ? tx.note
             : (tx.category.isEmpty ? 'Venit' : tx.category);
-        subtitleRest = tx.category;
+        // Fără text de categorie după iconiță — iconița e suficient de
+        // sugestivă (ex. Transport, Salariu), textul era redundant.
+        subtitleRest = '';
         subtitleIcon = categoryIcon(
           tx.category,
           fallback: Icons.savings_outlined,
@@ -72,7 +74,7 @@ class TransactionTile extends StatelessWidget {
         title = tx.note.isNotEmpty
             ? tx.note
             : (tx.category.isEmpty ? 'Plată' : tx.category);
-        subtitleRest = tx.category;
+        subtitleRest = '';
         subtitleIcon = categoryIcon(
           tx.category,
           fallback: Icons.payments_outlined,
