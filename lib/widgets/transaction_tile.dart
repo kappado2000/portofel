@@ -25,6 +25,7 @@ class TransactionTile extends StatelessWidget {
     final to = tx.toAccountId != null
         ? provider.accountById(tx.toAccountId!)
         : null;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     Color color;
     // Same dark shade the Venit/Plată buttons use for their own text, so the
@@ -33,6 +34,16 @@ class TransactionTile extends StatelessWidget {
     // Transferurile primesc o tentă de fundal mai închisă decât venituri/plăți,
     // ca să se distingă clar drept o categorie separată, neutră.
     double backgroundAlpha = 0.14;
+    // Venit/Plată au fundalul cardului gri degrade (neutru) — doar cercul
+    // cu numărul curent păstrează culoarea de venit/plată. Transferul
+    // rămâne cu tenta lui plată (blueGrey), fără gradient.
+    Gradient? cardGradient = LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: isDark
+          ? [Colors.grey.shade800, Colors.grey.shade700]
+          : [Colors.grey.shade200, Colors.grey.shade400],
+    );
     String title;
     // Restul subtitlului, afișat după data/ora tranzacției și iconița
     // sugestivă (categorie, sau ruta de transfer).
@@ -73,6 +84,7 @@ class TransactionTile extends StatelessWidget {
         color = Colors.blueGrey.shade800;
         amountColor = Colors.blueGrey.shade900;
         backgroundAlpha = 0.24;
+        cardGradient = null;
         title = tx.note.isNotEmpty
             ? tx.note
             : '${from?.name ?? '?'} → ${to?.name ?? '?'}';
@@ -98,7 +110,10 @@ class TransactionTile extends StatelessWidget {
       child: Container(
         margin: const EdgeInsets.only(bottom: 6),
         decoration: BoxDecoration(
-          color: color.withValues(alpha: backgroundAlpha),
+          color: cardGradient == null
+              ? color.withValues(alpha: backgroundAlpha)
+              : null,
+          gradient: cardGradient,
           borderRadius: BorderRadius.circular(12),
         ),
         child: ListTile(
