@@ -24,6 +24,9 @@ class AccountCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isBank = account.kind == AccountKind.bank;
+    final isCashEur =
+        account.currency == AccountCurrency.eur &&
+        account.kind == AccountKind.cash;
 
     return Container(
       decoration: BoxDecoration(
@@ -75,13 +78,7 @@ class AccountCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                AmountText(
-                  formatAmount(account.balance, account.currency),
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
+                _buildAmount(context, isCashEur),
                 if (onEdit != null)
                   IconButton(
                     icon: const Icon(
@@ -97,6 +94,31 @@ class AccountCard extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+
+  /// Suma contului — pentru Cash Euro, cifre mai mari și o margine subțire
+  /// verde-închis, ca să se distingă vizual de restul conturilor.
+  Widget _buildAmount(BuildContext context, bool isCashEur) {
+    final baseStyle = Theme.of(context).textTheme.titleMedium?.copyWith(
+      fontWeight: FontWeight.bold,
+      color: Colors.white,
+      fontSize: isCashEur
+          ? (Theme.of(context).textTheme.titleMedium?.fontSize ?? 16) * 1.25
+          : null,
+    );
+    final amount = AmountText(
+      formatAmount(account.balance, account.currency),
+      style: baseStyle,
+    );
+    if (!isCashEur) return amount;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        border: Border.all(color: const Color(0xFF1B5E20), width: 1),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: amount,
     );
   }
 }
