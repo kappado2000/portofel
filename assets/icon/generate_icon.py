@@ -150,6 +150,15 @@ for dx, dy, color in card_specs:
         radius=int(card_w * 0.14),
         fill=color,
     )
+    # margine fină, de culoare închisă, pe conturul cardului — vizibilă doar
+    # pe partea care iese din portofel (jumătatea de jos e acoperită mai jos)
+    border_color = lerp_color(color, (0, 0, 0), 0.35) + (255,)
+    cld.rounded_rectangle(
+        [cl0, ct0, cl0 + card_w, ct0 + card_h],
+        radius=int(card_w * 0.14),
+        outline=border_color,
+        width=max(1, int(SIZE * 0.003)),
+    )
 
     # Pe cardul din față (portocaliu) desenăm doar cipul auriu, în partea
     # dreaptă a cardului, ca să se vadă clar că e un card.
@@ -217,7 +226,16 @@ except Exception:
 text = "€"
 bbox = draw.textbbox((0, 0), text, font=font)
 tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
-draw.text((coin_cx - tw / 2 - bbox[0], coin_cy - th / 2 - bbox[1]), text, font=font, fill=(110, 74, 10))
+# Glifa "€" are cele două bare orizontale ieșite mult spre stânga curbei, ceea
+# ce face ca o centrare strictă după bounding box să PARĂ deplasată spre
+# dreapta vizual — corectăm cu o mică deplasare optică spre stânga.
+optical_shift_x = coin_r * 0.07
+draw.text(
+    (coin_cx - tw / 2 - bbox[0] - optical_shift_x, coin_cy - th / 2 - bbox[1]),
+    text,
+    font=font,
+    fill=(110, 74, 10),
+)
 
 # ---- Composite foreground artwork onto the gradient background ----
 foreground = canvas  # wallet + cards + coins, transparent elsewhere
