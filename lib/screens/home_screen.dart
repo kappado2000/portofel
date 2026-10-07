@@ -11,6 +11,7 @@ import '../utils/formatters.dart';
 import '../widgets/account_card.dart';
 import '../widgets/amount_text.dart';
 import '../widgets/transaction_tile.dart';
+import 'account_detail_screen.dart';
 import 'accounts_screen.dart';
 import 'add_transaction_screen.dart';
 import 'family_accounts_screen.dart';
@@ -226,7 +227,15 @@ class _HomeScreenState extends State<HomeScreen> {
                 ...visibleAccounts.map(
                   (a) => Padding(
                     padding: const EdgeInsets.only(bottom: 8),
-                    child: AccountCard(account: a),
+                    child: AccountCard(
+                      account: a,
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => AccountDetailScreen(accountId: a.id),
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               const SizedBox(height: 24),
@@ -395,7 +404,15 @@ class _HomeScreenState extends State<HomeScreen> {
           index: index,
           child: Padding(
             padding: const EdgeInsets.only(bottom: 8),
-            child: AccountCard(account: account),
+            child: AccountCard(
+              account: account,
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => AccountDetailScreen(accountId: account.id),
+                ),
+              ),
+            ),
           ),
         );
       },
