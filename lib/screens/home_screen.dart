@@ -326,7 +326,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: _GlassBarButton(
                       icon: Icons.add,
                       label: 'Venit',
-                      color: Colors.green.shade800,
+                      color: Colors.green.shade700,
                       borderRadius: const BorderRadius.horizontal(
                         left: Radius.circular(radius),
                       ),
@@ -344,7 +344,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: _GlassBarButton(
                       icon: Icons.remove,
                       label: 'Plată',
-                      color: Colors.red.shade800,
+                      color: Colors.red.shade700,
                       borderRadius: const BorderRadius.horizontal(
                         right: Radius.circular(radius),
                       ),
@@ -414,22 +414,30 @@ class _GlassBarButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      borderRadius: borderRadius,
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 14),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: color, size: 20),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: Theme.of(context).textTheme.titleSmall
-                  ?.copyWith(color: color, fontWeight: FontWeight.bold),
-            ),
-          ],
+    return Container(
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.6),
+        borderRadius: borderRadius,
+      ),
+      child: InkWell(
+        borderRadius: borderRadius,
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, color: Colors.white, size: 20),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
