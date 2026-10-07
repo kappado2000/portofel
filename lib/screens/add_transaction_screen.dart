@@ -156,6 +156,7 @@ class _IncomeExpenseFormState extends State<_IncomeExpenseForm> {
         children: [
           DropdownButtonFormField<String>(
             initialValue: _accountId,
+            isExpanded: true,
             decoration: InputDecoration(
               labelText: widget.isIncome ? 'Cont destinație' : 'Cont sursă',
             ),
@@ -163,7 +164,10 @@ class _IncomeExpenseFormState extends State<_IncomeExpenseForm> {
                 .map(
                   (a) => DropdownMenuItem(
                     value: a.id,
-                    child: Text('${a.name} (${currencyLabel(a.currency)})'),
+                    child: Text(
+                      '${a.name} (${currencyLabel(a.currency)}) — ${formatAmount(a.balance, a.currency)}',
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                 )
                 .toList(),
@@ -434,12 +438,16 @@ class _TransferFormState extends State<_TransferForm> {
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
             initialValue: _fromId,
+            isExpanded: true,
             decoration: const InputDecoration(labelText: 'Din contul'),
             items: accounts
                 .map(
                   (a) => DropdownMenuItem(
                     value: a.id,
-                    child: Text('${a.name} (${currencyLabel(a.currency)})'),
+                    child: Text(
+                      '${a.name} (${currencyLabel(a.currency)}) — ${formatAmount(a.balance, a.currency)}',
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                 )
                 .toList(),
@@ -448,13 +456,17 @@ class _TransferFormState extends State<_TransferForm> {
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
             initialValue: _toId,
+            isExpanded: true,
             decoration: const InputDecoration(labelText: 'În contul'),
             items: accounts
                 .where((a) => a.id != _fromId)
                 .map(
                   (a) => DropdownMenuItem(
                     value: a.id,
-                    child: Text('${a.name} (${currencyLabel(a.currency)})'),
+                    child: Text(
+                      '${a.name} (${currencyLabel(a.currency)}) — ${formatAmount(a.balance, a.currency)}',
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                 )
                 .toList(),
