@@ -59,7 +59,7 @@ cx, cy = SIZE / 2, SIZE / 2
 shadow = Image.new("RGBA", (SIZE, SIZE), (0, 0, 0, 0))
 sd = ImageDraw.Draw(shadow)
 wallet_w, wallet_h = SIZE * 0.74, SIZE * 0.54
-wx0, wy0 = cx - wallet_w / 2, cy - wallet_h / 2 + SIZE * 0.05
+wx0, wy0 = cx - wallet_w / 2, cy - wallet_h / 2
 sd.rounded_rectangle(
     [wx0 + SIZE * 0.02, wy0 + SIZE * 0.035, wx0 + wallet_w + SIZE * 0.02, wy0 + wallet_h + SIZE * 0.035],
     radius=int(SIZE * 0.06),
@@ -78,47 +78,6 @@ gold_dark = (255, 179, 0)      # amber 700
 wx1, wy1 = wx0 + wallet_w, wy0 + wallet_h
 radius = int(SIZE * 0.06)
 draw.rounded_rectangle([wx0, wy0, wx1, wy1], radius=radius, fill=body_color)
-
-# ---- Cards peeking out of the wallet, tucked under the flap ----
-# Each card is drawn on its own layer, rotated, then pasted so its lower
-# half sinks behind where the flap will be drawn (covering it) and only
-# the top pokes out above the wallet's edge.
-flap_h_preview = wallet_h * 0.42  # same value used below for the flap
-card_w, card_h = wallet_w * 0.24, wallet_h * 0.4
-card_specs = [
-    (-12, -wallet_w * 0.20, (245, 245, 245)),   # white, left, tilted left
-    (3, -wallet_w * 0.03, (179, 229, 252)),      # light blue, center
-    (16, wallet_w * 0.13, (255, 224, 178)),      # soft peach, right, tilted right
-]
-# Cards mostly poke out ABOVE the wallet's top edge; only a small sliver at
-# the bottom sinks into the flap area so it can hide the seam.
-card_anchor_y = wy0 + card_h * 0.32
-
-for angle, dx, color in card_specs:
-    pad = int(max(card_w, card_h) * 0.4)
-    layer_size = int(max(card_w, card_h) + pad * 2)
-    card_layer = Image.new("RGBA", (layer_size, layer_size), (0, 0, 0, 0))
-    cld = ImageDraw.Draw(card_layer)
-    cl0 = (layer_size - card_w) / 2
-    ct0 = (layer_size - card_h) / 2
-    cld.rounded_rectangle(
-        [cl0, ct0, cl0 + card_w, ct0 + card_h],
-        radius=int(card_w * 0.14),
-        fill=color,
-        outline=(0, 0, 0, 40),
-        width=max(1, int(SIZE * 0.002)),
-    )
-    # a thin accent stripe near the top of the card, like a bank card
-    cld.rectangle(
-        [cl0 + card_w * 0.12, ct0 + card_h * 0.16, cl0 + card_w * 0.88, ct0 + card_h * 0.24],
-        fill=(0, 0, 0, 35),
-    )
-    rotated = card_layer.rotate(angle, resample=Image.BICUBIC, expand=False)
-    paste_x = int(cx + dx - layer_size / 2)
-    paste_y = int(card_anchor_y - layer_size / 2)
-    canvas.paste(rotated, (paste_x, paste_y), rotated)
-
-draw = ImageDraw.Draw(canvas)
 
 # top flap (slightly lighter, only top portion). Drawn as a fully rounded
 # rect, then its bottom corners are squared off by painting over them, so
@@ -139,9 +98,100 @@ draw.rounded_rectangle(
     fill=gold_dark,
 )
 
-# ---- Coin peeking from top-right, overlapping wallet ----
-coin_r = SIZE * 0.135
-coin_cx, coin_cy = wx1 - SIZE * 0.05, wy0 - SIZE * 0.02
+# ---- Tăietura din clapă prin care ies cardurile: doar o linie fină,
+# întunecată — NU o formă/cutie cu colțuri rotunjite. Cardurile vor ieși
+# direct din această tăietură, iar jumătatea lor de jos va fi acoperită
+# (prin re-desenarea clapei peste ea), ca să pară înfipte direct în piele.
+card_w, card_h = wallet_w * 0.64, wallet_h * 0.27  # carduri late (format real de card)
+slit_w = wallet_w * 0.82  # mai lată decât grupul de carduri, ca să se vadă clar pe lături
+slit_h = SIZE * 0.022     # mai groasă, vizibilă clar ca un buzunar, nu doar o linie
+slit_color = lerp_color(body_color, (0, 0, 0), 0.55)  # maro foarte închis
+slit_y = wy0 + SIZE * 0.13
+
+
+def draw_slit():
+    draw.rectangle(
+        [cx - slit_w / 2, slit_y - slit_h / 2, cx + slit_w / 2, slit_y + slit_h / 2],
+        fill=slit_color,
+    )
+
+
+draw_slit()
+
+# ---- Cards ieșind direct din tăietură, ca în iconul Wallet (Portofel) de
+# pe iOS: carduri DREPTE (fără înclinare), stivuite unul peste altul.
+# Centrul fiecărui card e pe linia tăieturii (slit_y), astfel încât
+# jumătatea de sus iese vizibil afară, iar jumătatea de jos e acoperită mai
+# jos de clapă. Ordinea culorilor, de la cel mai din spate la cel din
+# față: albastru, galben, portocaliu. Cardurile din spate sunt ridicate mai
+# sus decât cel din față, ca să se vadă clar ieșind și pe sus, nu doar pe
+# lateral (efect de evantai pe verticală, fără înclinare).
+card_specs = [
+    (-wallet_w * 0.055, -wallet_h * 0.045, (30, 100, 220)),  # albastru, cel mai din spate — cel mai sus
+    (0, -wallet_h * 0.02, (255, 213, 79)),                   # galben, mijloc
+    (wallet_w * 0.055, 0, (255, 138, 61)),                   # portocaliu, cel din față (cel mai jos)
+]
+card_anchor_y = slit_y
+
+for dx, dy, color in card_specs:
+    layer_w, layer_h = int(card_w * 1.3), int(card_h * 1.3)
+    card_layer = Image.new("RGBA", (layer_w, layer_h), (0, 0, 0, 0))
+    cld = ImageDraw.Draw(card_layer)
+    cl0 = (layer_w - card_w) / 2
+    ct0 = (layer_h - card_h) / 2
+    # umbră sub fiecare card, ca să se vadă clar stratificarea
+    cld.rounded_rectangle(
+        [cl0 + SIZE * 0.006, ct0 + SIZE * 0.012, cl0 + card_w + SIZE * 0.006, ct0 + card_h + SIZE * 0.012],
+        radius=int(card_w * 0.14),
+        fill=(0, 0, 0, 50),
+    )
+    cld.rounded_rectangle(
+        [cl0, ct0, cl0 + card_w, ct0 + card_h],
+        radius=int(card_w * 0.14),
+        fill=color,
+    )
+
+    # Pe cardul din față (portocaliu) desenăm doar cipul auriu, în partea
+    # dreaptă a cardului, ca să se vadă clar că e un card.
+    # NOTĂ: jumătatea de jos a cardului e acoperită mai târziu (cardul pare
+    # înfipt pe jumătate în buzunar), deci cipul trebuie să încapă STRICT
+    # în jumătatea de sus (local y < card_h * 0.48).
+    if color == (255, 138, 61):
+        chip_w, chip_h = card_w * 0.24, card_h * 0.24
+        chip_x0 = cl0 + card_w * 0.56
+        chip_y0 = ct0 + card_h * 0.2
+        chip_color = (222, 190, 120, 255)
+        cld.rounded_rectangle(
+            [chip_x0, chip_y0, chip_x0 + chip_w, chip_y0 + chip_h],
+            radius=int(chip_w * 0.22),
+            fill=chip_color,
+        )
+        for i in range(1, 3):
+            line_y = chip_y0 + chip_h * i / 3
+            cld.line(
+                [chip_x0, line_y, chip_x0 + chip_w, line_y],
+                fill=(150, 120, 60, 200),
+                width=max(1, int(SIZE * 0.0015)),
+            )
+
+    paste_x = int(cx + dx - layer_w / 2)
+    paste_y = int(card_anchor_y + dy - layer_h / 2)
+    canvas.paste(card_layer, (paste_x, paste_y), card_layer)
+
+draw = ImageDraw.Draw(canvas)
+
+# Re-desenăm clapa PESTE jumătatea de jos a cardurilor (aceeași culoare ca
+# clapa, deci nu adaugă nicio formă vizibilă nouă) — astfel cardurile par
+# să iasă direct din tăietură, nu lipite peste o cutie. Tăietura în sine nu
+# e acoperită, deci rămâne vizibilă în stânga/dreapta cardurilor.
+mask_top = slit_y + slit_h / 2
+draw.rectangle([wx0, mask_top, wx1, wy0 + flap_h], fill=body_light)
+draw = ImageDraw.Draw(canvas)
+
+# ---- Moneda cu euro, centrată pe servietă, mai jos — ca cardurile să fie
+# complet vizibile, fără să se intersecteze cu moneda ----
+coin_r = SIZE * 0.12
+coin_cx, coin_cy = cx, stitch_y + SIZE * 0.07
 
 coin_shadow = Image.new("RGBA", (SIZE, SIZE), (0, 0, 0, 0))
 csd = ImageDraw.Draw(coin_shadow)
@@ -168,23 +218,6 @@ text = "€"
 bbox = draw.textbbox((0, 0), text, font=font)
 tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
 draw.text((coin_cx - tw / 2 - bbox[0], coin_cy - th / 2 - bbox[1]), text, font=font, fill=(110, 74, 10))
-
-# ---- Second smaller coin bottom-left of wallet for balance ----
-coin2_r = SIZE * 0.075
-c2x, c2y = wx0 + SIZE * 0.06, wy1 - SIZE * 0.02
-draw.ellipse([c2x - coin2_r, c2y - coin2_r, c2x + coin2_r, c2y + coin2_r], fill=(255, 213, 79))
-draw.ellipse(
-    [c2x - coin2_r * 0.78, c2y - coin2_r * 0.78, c2x + coin2_r * 0.78, c2y + coin2_r * 0.78],
-    outline=gold_dark, width=int(SIZE * 0.006),
-)
-try:
-    font2 = ImageFont.truetype("arialbd.ttf", int(coin2_r * 1.1))
-except Exception:
-    font2 = ImageFont.load_default()
-text2 = "L"
-bbox2 = draw.textbbox((0, 0), text2, font=font2)
-tw2, th2 = bbox2[2] - bbox2[0], bbox2[3] - bbox2[1]
-draw.text((c2x - tw2 / 2 - bbox2[0], c2y - th2 / 2 - bbox2[1]), text2, font=font2, fill=(110, 74, 10))
 
 # ---- Composite foreground artwork onto the gradient background ----
 foreground = canvas  # wallet + cards + coins, transparent elsewhere
