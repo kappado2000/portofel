@@ -21,7 +21,11 @@ class MoneyProvider extends ChangeNotifier {
 
   String? get loadedProfileId => _loadedProfileId;
 
-  List<Account> get accounts => List.unmodifiable(_accounts);
+  List<Account> get accounts {
+    final list = List<Account>.from(_accounts)
+      ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+    return List.unmodifiable(list);
+  }
 
   List<Account> _sortedByGroup(AccountGroup group) {
     final list = _accounts.where((a) => a.group == group).toList();
@@ -33,17 +37,9 @@ class MoneyProvider extends ChangeNotifier {
 
   List<Account> get familyAccounts => _sortedByGroup(AccountGroup.family);
 
-  /// Contul preselectat implicit în formulare: Cash Euro, dacă există,
-  /// altfel primul cont disponibil.
-  Account? get defaultAccount {
-    if (_accounts.isEmpty) return null;
-    for (final a in _accounts) {
-      if (a.currency == AccountCurrency.eur && a.kind == AccountKind.cash) {
-        return a;
-      }
-    }
-    return _accounts.first;
-  }
+  /// Contul preselectat implicit în formulare: primul cont din ordinea
+  /// stabilită de utilizator (cel tras în sus în lista de conturi).
+  Account? get defaultAccount => accounts.isEmpty ? null : accounts.first;
 
   List<MoneyTransaction> get transactions {
     final list = List<MoneyTransaction>.from(_transactions);
@@ -164,6 +160,18 @@ class MoneyProvider extends ChangeNotifier {
   /// din callback-ul `onReorderItem`, care are deja newIndex ajustat pentru
   /// elementul scos de la oldIndex (spre deosebire de vechiul `onReorder`,
   /// deprecated în Flutter 3.47).
+  /// Reordonează toate conturile (pentru lista din formularul de tranzacție).
+  void reorderAllAccounts(int oldIndex, int newIndex) {
+    final list = accounts.toList();
+    final moved = list.removeAt(oldIndex);
+    list.insert(newIndex, moved);
+    for (var i = 0; i < list.length; i++) {
+      list[i].sortOrder = i;
+      _persistAccount(list[i]);
+    }
+    notifyListeners();
+  }
+
   Future<void> reorderAccounts(
     AccountGroup group,
     int oldIndex,

@@ -70,6 +70,13 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
     return Scaffold(
       appBar: AppBar(
         title: const Text('Adaugă tranzacție'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.swap_vert),
+            tooltip: 'Ordinea conturilor',
+            onPressed: () => _ordoneazaConturi(context),
+          ),
+        ],
         bottom: TabBar(
           controller: _tabController,
           tabs: const [
@@ -659,4 +666,61 @@ class _TransferFormState extends State<_TransferForm> {
       if (mounted) Navigator.pop(context);
     }
   }
+}
+
+/// Lista conturilor, reordonabilă prin apăsare lungă și tragere. Contul de sus
+/// devine implicit în formularele de tranzacție.
+Future<void> _ordoneazaConturi(BuildContext context) {
+  return showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    builder: (ctx) => SafeArea(
+      child: Consumer<MoneyProvider>(
+        builder: (ctx, provider, _) {
+          final accounts = provider.accounts;
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Ține apăsat și trage contul. Cel de sus este implicit.',
+                  style: Theme.of(ctx).textTheme.bodySmall,
+                ),
+                const SizedBox(height: 8),
+                Flexible(
+                  child: ReorderableListView.builder(
+                    shrinkWrap: true,
+                    buildDefaultDragHandles: false,
+                    itemCount: accounts.length,
+                    onReorderItem: provider.reorderAllAccounts,
+                    itemBuilder: (ctx, i) {
+                      final a = accounts[i];
+                      return ReorderableDelayedDragStartListener(
+                        key: ValueKey(a.id),
+                        index: i,
+                        child: ListTile(
+                          leading: Icon(
+                            a.kind == AccountKind.bank
+                                ? Icons.account_balance
+                                : Icons.payments,
+                          ),
+                          title: Text(a.name),
+                          subtitle: Text(currencyLabel(a.currency)),
+                          trailing: i == 0
+                              ? const Chip(label: Text('Implicit'))
+                              : null,
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    ),
+  );
 }
