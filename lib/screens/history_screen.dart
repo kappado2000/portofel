@@ -21,6 +21,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
   TxType? _filterType;
   String? _filterAccountId;
   DateTimeRange? _dateRange;
+  String _search = '';
   final _exportButtonKey = GlobalKey();
 
   @override
@@ -28,6 +29,23 @@ class _HistoryScreenState extends State<HistoryScreen> {
     final provider = context.watch<MoneyProvider>();
     var txs = provider.transactions;
 
+    if (_search.trim().isNotEmpty) {
+      final query = _search.trim().toLowerCase();
+      txs = txs.where((t) {
+        final from = provider.accountById(t.fromAccountId);
+        final to = t.toAccountId != null
+            ? provider.accountById(t.toAccountId!)
+            : null;
+        final haystack = [
+          t.note,
+          t.category,
+          from?.name ?? '',
+          to?.name ?? '',
+          t.amount.toString(),
+        ].join(' ').toLowerCase();
+        return haystack.contains(query);
+      }).toList();
+    }
     if (_filterType != null) {
       txs = txs.where((t) => t.type == _filterType).toList();
     }
@@ -87,6 +105,23 @@ class _HistoryScreenState extends State<HistoryScreen> {
       ),
       body: Column(
         children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+            child: TextField(
+              decoration: InputDecoration(
+                labelText: 'Caută (nume, categorie, cont, sumă)',
+                prefixIcon: const Icon(Icons.search),
+                isDense: true,
+                suffixIcon: _search.isEmpty
+                    ? null
+                    : IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () => setState(() => _search = ''),
+                      ),
+              ),
+              onChanged: (v) => setState(() => _search = v),
+            ),
+          ),
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
             child: Row(

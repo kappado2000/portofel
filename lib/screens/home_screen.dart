@@ -14,6 +14,7 @@ import '../widgets/transaction_tile.dart';
 import 'accounts_screen.dart';
 import 'add_transaction_screen.dart';
 import 'family_accounts_screen.dart';
+import 'history_screen.dart';
 import 'settings_screen.dart';
 
 enum _CurrencyFilter { all, ron, eur }
@@ -75,6 +76,14 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.history),
+            tooltip: 'Istoric tranzacții',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const HistoryScreen()),
+            ),
+          ),
           IconButton(
             icon: const Icon(Icons.family_restroom),
             tooltip: 'Conturi Familie',
