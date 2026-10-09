@@ -255,16 +255,7 @@ class _BillsScreenState extends State<BillsScreen> {
             _TotalsCard(
               unpaid: provider.unpaidTotal(),
               paid: provider.paidTotal(),
-            ),
-            const SizedBox(height: 12),
-            FilledButton.icon(
-              onPressed: provider.paidCount > 0 ? _saveToHistory : null,
-              icon: const Icon(Icons.archive_outlined),
-              label: Text(
-                provider.paidCount > 0
-                    ? 'Salvează în istoric (${provider.paidCount})'
-                    : 'Salvează în istoric',
-              ),
+              onSave: provider.paidCount > 0 ? _saveToHistory : null,
             ),
             const SizedBox(height: 16),
             for (final p in BillProvider.values)
@@ -283,7 +274,14 @@ class _TotalsCard extends StatelessWidget {
   final double unpaid;
   final double paid;
 
-  const _TotalsCard({required this.unpaid, required this.paid});
+  /// `null` când nu e nicio factură bifată: butonul apare dezactivat.
+  final VoidCallback? onSave;
+
+  const _TotalsCard({
+    required this.unpaid,
+    required this.paid,
+    required this.onSave,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -315,8 +313,26 @@ class _TotalsCard extends StatelessWidget {
       child: Row(
         children: [
           cell('De plată', unpaid),
-          const SizedBox(width: 16),
+          const SizedBox(width: 12),
           cell('Total bifate', paid),
+          const SizedBox(width: 12),
+          FilledButton(
+            onPressed: onSave,
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.red.shade600,
+              foregroundColor: Colors.white,
+              disabledBackgroundColor: Colors.white24,
+              disabledForegroundColor: Colors.white60,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: const Text(
+              'Salvează\nîn istoric',
+              textAlign: TextAlign.center,
+            ),
+          ),
         ],
       ),
     );
