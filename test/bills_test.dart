@@ -53,8 +53,8 @@ void main() {
     expect(Bill.fromMap(bill.toMap()..remove('archived')).archived, isFalse);
   });
 
-  test('isOverdue ignores paid bills and bills without due date', () {
-    Bill make({DateTime? due, bool paid = false}) => Bill(
+  test('isOverdue follows the provider payment, not the tick', () {
+    Bill make({DateTime? due, bool paid = false, bool open = true}) => Bill(
       id: 'x',
       provider: BillProvider.hidroelectrica,
       contractCode: '1',
@@ -62,16 +62,23 @@ void main() {
       balance: 10,
       dueDate: due,
       paid: paid,
+      openAtProvider: open,
       fetchedAt: DateTime.now(),
     );
     final yesterday = DateTime.now().subtract(const Duration(days: 1));
     expect(make(due: yesterday).isOverdue, isTrue);
-    expect(make(due: yesterday, paid: true).isOverdue, isFalse);
+    expect(make(due: yesterday, paid: true).isOverdue, isTrue);
+    expect(make(due: yesterday, open: false).isOverdue, isFalse);
     expect(make().isOverdue, isFalse);
     expect(
       make(due: DateTime.now().add(const Duration(days: 3))).isOverdue,
       isFalse,
     );
+    expect(
+      billProviderStatus(make(due: yesterday)),
+      startsWith('Restantă la furnizor'),
+    );
+    expect(billProviderStatus(make(open: false)), 'Plătită la furnizor');
   });
 
   test('parseAmount handles Romanian and standard formats', () {

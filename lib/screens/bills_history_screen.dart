@@ -36,7 +36,7 @@ class BillsHistoryScreen extends StatelessWidget {
       builder: (ctx) => AlertDialog(
         title: const Text('Întorci factura în lista de facturi?'),
         content: Text(
-          '${billProviderLabel(bill.provider)}, ${_lei(bill.balance)}. '
+          '${billProviderLabel(bill.provider)}, ${_lei(bill.amount)}. '
           '${billDatesLine(bill)}.\n\n'
           'Factura iese din istoric și reapare în lista de facturi, '
           'nebifată.',
@@ -63,7 +63,7 @@ class BillsHistoryScreen extends StatelessWidget {
       builder: (ctx) => AlertDialog(
         title: const Text('Ștergi factura din istoric?'),
         content: Text(
-          '${billProviderLabel(bill.provider)}, ${_lei(bill.balance)}. '
+          '${billProviderLabel(bill.provider)}, ${_lei(bill.amount)}. '
           'Ștergerea nu poate fi anulată.',
         ),
         actions: [
@@ -94,7 +94,7 @@ class BillsHistoryScreen extends StatelessWidget {
       final d = b.paidAt ?? b.fetchedAt;
       months.putIfAbsent(DateTime(d.year, d.month), () => []).add(b);
     }
-    final total = bills.fold<double>(0, (s, b) => s + b.balance);
+    final total = bills.fold<double>(0, (s, b) => s + b.amount);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Istoric facturi achitate')),
@@ -141,7 +141,7 @@ class BillsHistoryScreen extends StatelessWidget {
                                 _lei(
                                   entry.value.fold<double>(
                                     0,
-                                    (s, b) => s + b.balance,
+                                    (s, b) => s + b.amount,
                                   ),
                                 ),
                                 style: textTheme.titleMedium,
@@ -185,7 +185,7 @@ class _HistoryTile extends StatelessWidget {
         : 'Cod ${bill.contractCode}';
     return ListTile(
       title: Text(
-        '${billProviderLabel(bill.provider)} · ${_lei(bill.balance)}',
+        '${billProviderLabel(bill.provider)} · ${_lei(bill.amount)}',
         style: const TextStyle(fontWeight: FontWeight.w600),
       ),
       subtitle: Text(
@@ -194,6 +194,7 @@ class _HistoryTile extends StatelessWidget {
           billDatesLine(bill),
           if (bill.invoiceNumber.isNotEmpty) 'Nr. ${bill.invoiceNumber}',
           place,
+          if (bill.isOverdue) billProviderStatus(bill),
         ].join('\n'),
       ),
       isThreeLine: true,

@@ -158,6 +158,7 @@ class HidroelectricaApi {
   /// Locurile de consum din [skip] nu sunt interogate.
   Future<List<Bill>> fetchOpenBills({
     Map<String, DateTime> since = const {},
+    DateTime? sinceDefault,
     Set<String> skip = const {},
   }) async {
     final bills = <Bill>[];
@@ -242,7 +243,7 @@ class HidroelectricaApi {
         );
       }
 
-      final from = since[uan];
+      final from = since[uan] ?? sinceDefault;
       if (from != null) {
         for (final h in history) {
           if (identical(h, currentInHistory) && balance > 0) continue;

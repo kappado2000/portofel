@@ -89,6 +89,13 @@ class BillsProvider extends ChangeNotifier {
 
   static String locationKey(BillProvider p, String code) => _locKey(p, code);
 
+  /// Facturile se cer „emise după” această dată, deci cu o zi înainte de
+  /// [startDate], ca ziua aleasă să fie inclusă.
+  DateTime get _sinceDefault {
+    final d = startDate;
+    return DateTime(d.year, d.month, d.day).subtract(const Duration(days: 1));
+  }
+
   Set<String> _skipFor(BillProvider p) => {
     for (final key in _hidden)
       if (key.startsWith('${p.name}|')) key.substring(p.name.length + 1),
@@ -122,15 +129,36 @@ class BillsProvider extends ChangeNotifier {
     return list;
   }
 
-  double _sum(Iterable<Bill> bills) => bills.fold(0, (s, b) => s + b.balance);
+  double _sum(Iterable<Bill> bills) => bills.fold(0, (s, b) => s + b.amount);
 
-  /// Totalul facturilor nebifate și încă neachitate la furnizor
-  /// (opțional, doar ale unui furnizor).
-  double unpaidTotal([BillProvider? p]) => _sum(
-    _active.where(
-      (b) => !b.paid && b.openAtProvider && (p == null || b.provider == p),
-    ),
-  );
+  /// Data de la care se afișează facturile emise, pentru adresele care nu
+  /// au încă nimic în istoric. Implicit, cu 60 de zile înainte de prima
+  /// folosire.
+  DateTime get startDate {
+    final v = _metaBox?.get('start_date');
+    return (v is String ? DateTime.tryParse(v) : null) ??
+        DateTime.now().subtract(const Duration(days: 60));
+  }
+
+  Future<void> setStartDate(DateTime date) async {
+    await _metaBox?.put('start_date', date.toIso8601String());
+    notifyListeners();
+  }
+
+  /// Facturile restante la furnizor (neplătite acolo, cu scadența
+  /// depășită), inclusiv cele bifate sau deja trecute în istoric.
+  List<Bill> get overdueBills => _bills
+      .where(
+        (b) =>
+            b.isOverdue &&
+            !_hidden.contains(_locKey(b.provider, b.contractCode)),
+      )
+      .toList();
+
+  /// Totalul facturilor nebifate (opțional, doar ale unui furnizor),
+  /// indiferent dacă sunt sau nu plătite la furnizor.
+  double unpaidTotal([BillProvider? p]) =>
+      _sum(_active.where((b) => !b.paid && (p == null || b.provider == p)));
 
   /// Pentru fiecare loc de consum al unui furnizor, data de emitere a
   /// ultimei facturi salvate în istoric: de acolo încolo se afișează toate
@@ -170,6 +198,9 @@ class BillsProvider extends ChangeNotifier {
       ..addAll(
         (_metaBox!.get('hidden_locations') as List? ?? []).map((e) => '$e'),
       );
+    if (_metaBox!.get('start_date') == null) {
+      await _metaBox!.put('start_date', startDate.toIso8601String());
+    }
     _usernames.clear();
     _errors.clear();
     for (final p in BillProvider.values) {
@@ -277,6 +308,7 @@ class BillsProvider extends ChangeNotifier {
       await api.login(creds.$1, creds.$2);
       final bills = await api.fetchOpenBills(
         since: _sinceFor(BillProvider.hidroelectrica),
+        sinceDefault: _sinceDefault,
         skip: _skipFor(BillProvider.hidroelectrica),
       );
       return (bills, api.locations);
@@ -333,6 +365,7 @@ class BillsProvider extends ChangeNotifier {
         creds.$1,
         creds.$2,
         since: since,
+        sinceDefault: _sinceDefault,
         skip: skip,
       );
       return (bills, api.locations);
@@ -399,33 +432,37 @@ class BillsProvider extends ChangeNotifier {
       if (existing == null) {
         _bills.add(f);
         await _billsBox?.put(f.id, f.toMap());
-      } else if (!existing.archived) {
+      } else {
+        // Plata reală la furnizor se urmărește și pentru facturile din
+        // istoric, ca o restanță să nu treacă neobservată.
         existing
-          ..invoiceNumber = f.invoiceNumber
-          ..amount = f.amount
           ..balance = f.balance
-          ..address = f.address
-          ..issueDate = f.issueDate ?? existing.issueDate
-          ..dueDate = f.dueDate ?? existing.dueDate
-          ..indexFrom = f.indexFrom ?? existing.indexFrom
-          ..indexTo = f.indexTo ?? existing.indexTo
-          ..readingType = f.readingType.isEmpty
-              ? existing.readingType
-              : f.readingType
-          ..indexPeriod = f.indexPeriod.isEmpty
-              ? existing.indexPeriod
-              : f.indexPeriod
-          ..fetchedAt = f.fetchedAt
-          ..openAtProvider = f.openAtProvider;
+          ..openAtProvider = f.openAtProvider
+          ..fetchedAt = f.fetchedAt;
+        if (!existing.archived) {
+          existing
+            ..invoiceNumber = f.invoiceNumber
+            ..amount = f.amount
+            ..address = f.address
+            ..issueDate = f.issueDate ?? existing.issueDate
+            ..dueDate = f.dueDate ?? existing.dueDate
+            ..indexFrom = f.indexFrom ?? existing.indexFrom
+            ..indexTo = f.indexTo ?? existing.indexTo
+            ..readingType = f.readingType.isEmpty
+                ? existing.readingType
+                : f.readingType
+            ..indexPeriod = f.indexPeriod.isEmpty
+                ? existing.indexPeriod
+                : f.indexPeriod;
+        }
         await _billsBox?.put(existing.id, existing.toMap());
       }
     }
     // Facturile care nu mai apar la furnizor ca neachitate rămân în listă,
-    // marcate ca achitate la furnizor, până sunt bifate și salvate în istoric.
+    // marcate ca plătite la furnizor.
     for (final b in _bills.where(
       (b) =>
           b.provider == p &&
-          !b.archived &&
           b.openAtProvider &&
           !_hidden.contains(_locKey(b.provider, b.contractCode)) &&
           !fetchedIds.contains(b.id),

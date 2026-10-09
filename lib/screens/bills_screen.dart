@@ -168,6 +168,21 @@ class _BillsScreenState extends State<BillsScreen> {
     MaterialPageRoute(builder: (_) => const BillsHistoryScreen()),
   );
 
+  Future<void> _chooseStartDate() async {
+    final provider = context.read<BillsProvider>();
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: provider.startDate,
+      firstDate: DateTime(now.year - 3),
+      lastDate: now,
+      helpText: 'Afișează facturile emise începând cu',
+    );
+    if (picked == null || !mounted) return;
+    await provider.setStartDate(picked);
+    if (mounted) await _refresh();
+  }
+
   Future<void> _chooseAddresses() async {
     final provider = context.read<BillsProvider>();
     final all = [
@@ -320,6 +335,8 @@ class _BillsScreenState extends State<BillsScreen> {
                   _editAccount(BillProvider.hidroelectrica);
                 case 'eon':
                   _editAccount(BillProvider.eon);
+                case 'start':
+                  _chooseStartDate();
                 case 'addresses':
                   _chooseAddresses();
                 case 'clear':
@@ -332,6 +349,10 @@ class _BillsScreenState extends State<BillsScreen> {
                 child: Text('Cont Hidroelectrica'),
               ),
               const PopupMenuItem(value: 'eon', child: Text('Cont E.ON')),
+              const PopupMenuItem(
+                value: 'start',
+                child: Text('Facturi începând cu…'),
+              ),
               const PopupMenuItem(
                 value: 'addresses',
                 child: Text('Adrese afișate'),
@@ -355,6 +376,10 @@ class _BillsScreenState extends State<BillsScreen> {
               paid: provider.paidTotal(),
               onSave: provider.paidCount > 0 ? _saveToHistory : null,
             ),
+            if (provider.overdueBills.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              _OverdueBanner(bills: provider.overdueBills),
+            ],
             const SizedBox(height: 16),
             for (final p in BillProvider.values)
               _ProviderSection(
@@ -410,7 +435,7 @@ class _TotalsCard extends StatelessWidget {
       decoration: heroCardDecoration(),
       child: Row(
         children: [
-          cell('De plată', unpaid),
+          cell('Nebifate', unpaid),
           const SizedBox(width: 12),
           cell('Total bifate', paid),
           const SizedBox(width: 12),
@@ -429,6 +454,59 @@ class _TotalsCard extends StatelessWidget {
             child: const Text(
               'Salvează\nîn istoric',
               textAlign: TextAlign.center,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Avertizare: facturi pe care banca nu le-a plătit până la scadență.
+class _OverdueBanner extends StatelessWidget {
+  final List<Bill> bills;
+
+  const _OverdueBanner({required this.bills});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final total = bills.fold<double>(0, (s, b) => s + b.balance);
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: scheme.errorContainer,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.warning_amber_rounded, color: scheme.onErrorContainer),
+          const SizedBox(width: 12),
+          Expanded(
+            child: DefaultTextStyle.merge(
+              style: TextStyle(color: scheme.onErrorContainer),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    bills.length == 1
+                        ? 'O factură restantă la furnizor: ${_lei(total)}'
+                        : '${bills.length} facturi restante la furnizor: '
+                              '${_lei(total)}',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 4),
+                  for (final b in bills)
+                    Text(
+                      '${billProviderLabel(b.provider)} · '
+                      '${b.address.isEmpty ? 'cod ${b.contractCode}' : b.address}'
+                      ' · ${_lei(b.balance)} · scadentă la '
+                      '${dateFormat.format(b.dueDate!)}'
+                      '${b.archived ? ' (în istoric)' : ''}',
+                    ),
+                ],
+              ),
             ),
           ),
         ],
@@ -577,7 +655,7 @@ class _ProviderSection extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsets.fromLTRB(42, 10, 16, 12),
                   child: Text(
-                    'Nicio factură de plată.',
+                    'Nicio factură de afișat.',
                     style: textTheme.bodyMedium?.copyWith(
                       color: scheme.onSurfaceVariant,
                     ),
@@ -603,11 +681,7 @@ class _BillTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final String? status = !bill.openAtProvider
-        ? 'Achitată la furnizor'
-        : bill.isOverdue
-        ? 'Scadență depășită'
-        : null;
+    final status = billProviderStatus(bill);
 
     return CheckboxListTile(
       value: bill.paid,
@@ -617,7 +691,7 @@ class _BillTile extends StatelessWidget {
           : null,
       onChanged: (v) => context.read<BillsProvider>().setPaid(bill, v ?? false),
       title: Text(
-        _lei(bill.balance),
+        _lei(bill.amount),
         style: TextStyle(
           fontWeight: FontWeight.w600,
           decoration: bill.paid ? TextDecoration.lineThrough : null,
@@ -650,13 +724,17 @@ class _BillTile extends StatelessWidget {
               ),
             ),
           ),
-          if (status != null)
-            Text(
-              status,
-              style: TextStyle(
-                color: bill.isOverdue ? scheme.error : scheme.primary,
-              ),
+          Text(
+            status,
+            style: TextStyle(
+              color: bill.isOverdue
+                  ? scheme.error
+                  : bill.openAtProvider
+                  ? scheme.onSurfaceVariant
+                  : scheme.primary,
+              fontWeight: bill.isOverdue ? FontWeight.w600 : null,
             ),
+          ),
         ],
       ),
     );

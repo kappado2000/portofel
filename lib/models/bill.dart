@@ -3,9 +3,10 @@ enum BillProvider { hidroelectrica, eon }
 String billProviderLabel(BillProvider p) =>
     p == BillProvider.hidroelectrica ? 'Hidroelectrica' : 'E.ON';
 
-/// O factură preluată de la un furnizor. [balance] și [openAtProvider]
-/// reflectă ce a raportat furnizorul la ultima actualizare; [paid] e bifa
-/// pusă manual de utilizator și nu e niciodată modificată de actualizare.
+/// O factură preluată de la un furnizor. [amount] e valoarea facturii;
+/// [balance] și [openAtProvider] reflectă plata reală la furnizor, la
+/// ultima actualizare. [paid] e bifa pusă manual de utilizator (evidența
+/// lui proprie) și nu e niciodată modificată de actualizare.
 /// O factură cu [archived] a fost salvată în istoricul facturilor achitate.
 /// [indexFrom]–[indexTo] e intervalul de index facturat, cu [readingType]
 /// (citit / estimat), atunci când furnizorul îl pune la dispoziție.
@@ -56,9 +57,11 @@ class Bill {
     String invoiceNumber,
   ) => '${provider.name}|$contractCode|$invoiceNumber';
 
+  /// Restantă la furnizor: încă neplătită acolo, cu scadența depășită.
+  /// Nu depinde de bifă — bifa ține evidența utilizatorului, nu plata reală.
   bool get isOverdue {
     final due = dueDate;
-    if (paid || !openAtProvider || due == null) return false;
+    if (!openAtProvider || due == null) return false;
     final now = DateTime.now();
     return due.isBefore(DateTime(now.year, now.month, now.day));
   }

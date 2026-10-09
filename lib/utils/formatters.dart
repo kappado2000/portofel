@@ -59,3 +59,12 @@ String billDatesLine(Bill bill) {
     if (due != null) 'scadentă la ${dateFormat.format(due)}',
   ].join(' ');
 }
+
+/// Starea plății reale la furnizor, afișată sub factură.
+String billProviderStatus(Bill bill) {
+  if (!bill.openAtProvider) return 'Plătită la furnizor';
+  final rest = formatAmount(bill.balance, AccountCurrency.ron);
+  return bill.isOverdue
+      ? 'Restantă la furnizor: $rest neplătiți'
+      : 'Neplătită încă la furnizor';
+}

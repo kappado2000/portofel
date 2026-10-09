@@ -243,6 +243,7 @@ class EonApi {
     String username,
     String password, {
     Map<String, DateTime> since = const {},
+    DateTime? sinceDefault,
     Set<String> skip = const {},
   }) async {
     await ensureSession(username, password);
@@ -314,7 +315,7 @@ class EonApi {
         await add(item, code, address, true);
       }
 
-      final from = since[code];
+      final from = since[code] ?? sinceDefault;
       if (from == null) continue;
       // Facturile achitate vin paginat, cele mai noi primele; ne oprim la
       // prima pagină fără nicio factură mai nouă decât [from].
