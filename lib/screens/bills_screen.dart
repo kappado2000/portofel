@@ -494,17 +494,12 @@ class _BillTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final due = bill.dueDate;
     final place = bill.address.isNotEmpty
         ? bill.address
         : 'Cod ${bill.contractCode}';
-    final details = [
-      if (bill.invoiceNumber.isNotEmpty) 'Factura ${bill.invoiceNumber}',
-      if (due != null) 'scadentă ${dateFormat.format(due)}',
-    ].join(' · ');
 
-    final String? status = bill.paid && !bill.openAtProvider
-        ? 'Confirmată ca achitată de furnizor'
+    final String? status = !bill.openAtProvider
+        ? 'Achitată la furnizor'
         : bill.isOverdue
         ? 'Scadență depășită'
         : null;
@@ -525,7 +520,8 @@ class _BillTile extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(place),
-          if (details.isNotEmpty) Text(details),
+          Text(billDatesLine(bill)),
+          if (bill.invoiceNumber.isNotEmpty) Text('Nr. ${bill.invoiceNumber}'),
           if (billIndexLine(bill) case final line?) Text(line),
           if (status != null)
             Text(

@@ -113,14 +113,46 @@ class HidroelectricaApi {
     return _accounts = accounts;
   }
 
-  /// Întoarce câte o factură pentru fiecare loc de consum care are sold de
-  /// plată. Apelează [login] înainte.
-  Future<List<Bill>> fetchOpenBills() async {
+  /// Facturile emise pentru un loc de consum, din istoricul de facturare.
+  /// Întoarce o listă goală dacă istoricul nu poate fi citit.
+  Future<List<Map>> _billingHistory(Map entry) async {
+    try {
+      final resp = await _post('/Service/Billing/GetBillingHistoryList', {
+        'LanguageCode': 'RO',
+        'UserID': _userId,
+        'UtilityAccountNumber': (entry['UtilityAccountNumber'] ?? '')
+            .toString()
+            .trim(),
+        'AccountNumber': (entry['AccountNumber'] ?? '').toString(),
+        'FromDate': '',
+        'ToDate': '',
+      });
+      final result = resp.map['result'];
+      if (resp.status != 200 || result is! Map) return const [];
+      final list = result['objBillingHistoryEntity'];
+      if (list is List) return list.whereType<Map>().toList();
+      return _dataList(resp, 'objBillingHistoryData');
+    } on BillFetchException {
+      return const [];
+    }
+  }
+
+  static String _invoiceKey(dynamic number) =>
+      '${number ?? ''}'.trim().replaceFirst(RegExp(r'^0+'), '');
+
+  /// Întoarce facturile fiecărui loc de consum: cea cu sold de plată și,
+  /// pentru locurile de consum prezente în [since], toate facturile emise
+  /// după data respectivă (data ultimei facturi salvate în istoric), chiar
+  /// dacă sunt deja achitate la furnizor. Apelează [login] înainte.
+  Future<List<Bill>> fetchOpenBills({
+    Map<String, DateTime> since = const {},
+  }) async {
     final bills = <Bill>[];
     final now = DateTime.now();
 
     for (final entry in await _fetchAccounts()) {
       final uan = (entry['UtilityAccountNumber'] ?? '').toString().trim();
+      final address = (entry['Address'] ?? '').toString().trim();
       final billResp = await _post('/Service/Billing/GetBill', {
         'LanguageCode': 'RO',
         'UserID': _userId,
@@ -135,30 +167,105 @@ class HidroelectricaApi {
         );
       }
       final result = billResp.map['result'];
-      if (result is! Map) continue;
-      final balance = parseAmount(result['rembalance']);
-      if (balance <= 0) continue;
+      final current = result is Map ? result : const {};
+      final balance = parseAmount(current['rembalance']);
+      final currentNumber = (current['invoicenumber'] ?? '').toString().trim();
+      final currentAmount = parseAmount(current['billamount']);
 
-      final invoiceNumber = (result['invoicenumber'] ?? '').toString().trim();
-      final amount = parseAmount(result['billamount']);
-      final interval = await _lastInterval(entry);
-      bills.add(
-        Bill(
-          indexFrom: interval?.$1,
-          indexTo: interval?.$2,
-          readingType: interval?.$3 ?? '',
-          indexPeriod: interval?.$4 ?? '',
-          id: Bill.buildId(BillProvider.hidroelectrica, uan, invoiceNumber),
-          provider: BillProvider.hidroelectrica,
-          contractCode: uan,
-          address: (entry['Address'] ?? '').toString().trim(),
-          invoiceNumber: invoiceNumber,
-          amount: amount > 0 ? amount : balance,
-          balance: balance,
-          dueDate: parseBillDate(result['duedate']),
-          fetchedAt: now,
-        ),
-      );
+      final history = await _billingHistory(entry);
+      // Factura curentă, regăsită în istoric: după număr sau, dacă numerele
+      // au alt format, după sumă.
+      Map? currentInHistory = history
+          .where(
+            (h) =>
+                currentNumber.isNotEmpty &&
+                (_invoiceKey(h['exbel']) == _invoiceKey(currentNumber) ||
+                    _invoiceKey(h['invoiceId']) == _invoiceKey(currentNumber)),
+          )
+          .firstOrNull;
+      currentInHistory ??= history
+          .where(
+            (h) =>
+                currentAmount > 0 && parseAmount(h['amount']) == currentAmount,
+          )
+          .firstOrNull;
+
+      final accountBills = <Bill>[];
+      if (balance > 0) {
+        accountBills.add(
+          Bill(
+            id: Bill.buildId(BillProvider.hidroelectrica, uan, currentNumber),
+            provider: BillProvider.hidroelectrica,
+            contractCode: uan,
+            address: address,
+            invoiceNumber: currentNumber,
+            amount: currentAmount > 0 ? currentAmount : balance,
+            balance: balance,
+            issueDate: parseBillDate(currentInHistory?['invoiceDate']),
+            dueDate:
+                parseBillDate(current['duedate']) ??
+                parseBillDate(currentInHistory?['dueDate']),
+            fetchedAt: now,
+          ),
+        );
+      }
+
+      final from = since[uan];
+      if (from != null) {
+        for (final h in history) {
+          if (identical(h, currentInHistory) && balance > 0) continue;
+          final issued = parseBillDate(h['invoiceDate']);
+          final amount = parseAmount(h['amount']);
+          if (issued == null || !issued.isAfter(from) || amount <= 0) continue;
+          final number = '${h['exbel'] ?? h['invoiceId'] ?? ''}'.trim();
+          final id = Bill.buildId(
+            BillProvider.hidroelectrica,
+            uan,
+            identical(h, currentInHistory) && currentNumber.isNotEmpty
+                ? currentNumber
+                : number,
+          );
+          if (accountBills.any((b) => b.id == id)) continue;
+          accountBills.add(
+            Bill(
+              id: id,
+              provider: BillProvider.hidroelectrica,
+              contractCode: uan,
+              address: address,
+              invoiceNumber: number,
+              amount: amount,
+              balance: amount,
+              issueDate: issued,
+              dueDate: parseBillDate(h['dueDate']),
+              fetchedAt: now,
+              openAtProvider: false,
+            ),
+          );
+        }
+      }
+
+      // Intervalul de index e cunoscut doar pentru cele mai recente citiri,
+      // deci se atașează celei mai noi facturi.
+      if (accountBills.isNotEmpty) {
+        final newest = accountBills.reduce(
+          (a, b) =>
+              (b.issueDate ?? DateTime(0)).isAfter(a.issueDate ?? DateTime(0))
+              ? b
+              : a,
+        );
+        final target = balance > 0 && accountBills.first.issueDate == null
+            ? accountBills.first
+            : newest;
+        final interval = await _lastInterval(entry);
+        if (interval != null) {
+          target
+            ..indexFrom = interval.$1
+            ..indexTo = interval.$2
+            ..readingType = interval.$3
+            ..indexPeriod = interval.$4;
+        }
+      }
+      bills.addAll(accountBills);
     }
     return bills;
   }

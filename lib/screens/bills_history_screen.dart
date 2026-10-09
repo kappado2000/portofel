@@ -154,11 +154,6 @@ class _HistoryTile extends StatelessWidget {
     final place = bill.address.isNotEmpty
         ? bill.address
         : 'Cod ${bill.contractCode}';
-    final details = [
-      if (paidAt != null) 'Achitată ${dateFormat.format(paidAt)}',
-      if (bill.invoiceNumber.isNotEmpty) 'Factura ${bill.invoiceNumber}',
-    ].join(' · ');
-
     return ListTile(
       title: Text(
         '${billProviderLabel(bill.provider)} · ${_lei(bill.balance)}',
@@ -166,12 +161,14 @@ class _HistoryTile extends StatelessWidget {
       ),
       subtitle: Text(
         [
-          if (details.isNotEmpty) details,
+          if (paidAt != null) 'Achitată la ${dateFormat.format(paidAt)}',
+          billDatesLine(bill),
+          if (bill.invoiceNumber.isNotEmpty) 'Nr. ${bill.invoiceNumber}',
           place,
           ?billIndexLine(bill),
         ].join('\n'),
       ),
-      isThreeLine: details.isNotEmpty,
+      isThreeLine: true,
       trailing: PopupMenuButton<String>(
         onSelected: (v) => v == 'restore' ? onRestore() : onDelete(),
         itemBuilder: (_) => const [

@@ -47,3 +47,15 @@ String? billIndexLine(Bill bill) {
   ].join(', ');
   return extra.isEmpty ? range : '$range ($extra)';
 }
+
+/// „Factura din data de … scadentă la …”, cu părțile cunoscute.
+String billDatesLine(Bill bill) {
+  final issued = bill.issueDate;
+  final due = bill.dueDate;
+  return [
+    issued == null
+        ? 'Factura'
+        : 'Factura din data de ${dateFormat.format(issued)}',
+    if (due != null) 'scadentă la ${dateFormat.format(due)}',
+  ].join(' ');
+}

@@ -58,7 +58,7 @@ class Bill {
 
   bool get isOverdue {
     final due = dueDate;
-    if (paid || due == null) return false;
+    if (paid || !openAtProvider || due == null) return false;
     final now = DateTime.now();
     return due.isBefore(DateTime(now.year, now.month, now.day));
   }

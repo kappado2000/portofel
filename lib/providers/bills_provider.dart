@@ -70,9 +70,29 @@ class BillsProvider extends ChangeNotifier {
 
   double _sum(Iterable<Bill> bills) => bills.fold(0, (s, b) => s + b.balance);
 
-  /// Totalul facturilor nebifate (opțional, doar ale unui furnizor).
-  double unpaidTotal([BillProvider? p]) =>
-      _sum(_active.where((b) => !b.paid && (p == null || b.provider == p)));
+  /// Totalul facturilor nebifate și încă neachitate la furnizor
+  /// (opțional, doar ale unui furnizor).
+  double unpaidTotal([BillProvider? p]) => _sum(
+    _active.where(
+      (b) => !b.paid && b.openAtProvider && (p == null || b.provider == p),
+    ),
+  );
+
+  /// Pentru fiecare loc de consum al unui furnizor, data de emitere a
+  /// ultimei facturi salvate în istoric: de acolo încolo se afișează toate
+  /// facturile, nu doar cele neachitate.
+  Map<String, DateTime> _sinceFor(BillProvider p) {
+    final since = <String, DateTime>{};
+    for (final b in _bills.where((b) => b.archived && b.provider == p)) {
+      final date = b.issueDate ?? b.dueDate;
+      if (date == null) continue;
+      final current = since[b.contractCode];
+      if (current == null || date.isAfter(current)) {
+        since[b.contractCode] = date;
+      }
+    }
+    return since;
+  }
 
   /// Totalul facturilor bifate (opțional, doar ale unui furnizor).
   double paidTotal([BillProvider? p]) =>
@@ -220,7 +240,9 @@ class BillsProvider extends ChangeNotifier {
     final api = HidroelectricaApi();
     try {
       await api.login(creds.$1, creds.$2);
-      final bills = await api.fetchOpenBills();
+      final bills = await api.fetchOpenBills(
+        since: _sinceFor(BillProvider.hidroelectrica),
+      );
       return (bills, await _tryMeters(api.fetchMeterReadings));
     } finally {
       api.close();
@@ -241,14 +263,15 @@ class BillsProvider extends ChangeNotifier {
       } catch (_) {
         // Sesiune salvată coruptă: se face logare completă.
       }
+      final since = _sinceFor(BillProvider.eon);
       List<Bill> bills;
       try {
-        bills = await api.fetchOpenBills(creds.$1, creds.$2);
+        bills = await api.fetchOpenBills(creds.$1, creds.$2, since: since);
       } on EonMfaRequired catch (challenge) {
         final code = await askMfaCode(challenge);
         if (code == null || code.trim().isEmpty) return null;
         await api.completeMfa(challenge.uuid, code);
-        bills = await api.fetchOpenBills(creds.$1, creds.$2);
+        bills = await api.fetchOpenBills(creds.$1, creds.$2, since: since);
       }
       final meters = await _tryMeters(
         () => api.fetchMeterReadings(creds.$1, creds.$2),
@@ -287,23 +310,21 @@ class BillsProvider extends ChangeNotifier {
               ? existing.indexPeriod
               : f.indexPeriod
           ..fetchedAt = f.fetchedAt
-          ..openAtProvider = true;
+          ..openAtProvider = f.openAtProvider;
         await _billsBox?.put(existing.id, existing.toMap());
       }
     }
-    // Facturile care nu mai apar ca neachitate la furnizor: cele nebifate
-    // dispar din listă, cele bifate rămân până le șterge utilizatorul.
-    final closed = _bills
-        .where((b) => b.provider == p && !fetchedIds.contains(b.id))
-        .toList();
-    for (final b in closed) {
-      if (b.paid) {
-        b.openAtProvider = false;
-        await _billsBox?.put(b.id, b.toMap());
-      } else {
-        _bills.remove(b);
-        await _billsBox?.delete(b.id);
-      }
+    // Facturile care nu mai apar la furnizor ca neachitate rămân în listă,
+    // marcate ca achitate la furnizor, până sunt bifate și salvate în istoric.
+    for (final b in _bills.where(
+      (b) =>
+          b.provider == p &&
+          !b.archived &&
+          b.openAtProvider &&
+          !fetchedIds.contains(b.id),
+    )) {
+      b.openAtProvider = false;
+      await _billsBox?.put(b.id, b.toMap());
     }
   }
 

@@ -37,6 +37,10 @@ void main() {
     expect(restored.paidAt, bill.paidAt);
     expect(restored.openAtProvider, isFalse);
     expect(restored.archived, isTrue);
+    expect(
+      billDatesLine(restored),
+      'Factura din data de 01.09.2026 scadentă la 01.10.2026',
+    );
     expect(restored.indexFrom, 1200);
     expect(restored.indexTo, 1350);
     expect(restored.readingType, 'Autocitire');

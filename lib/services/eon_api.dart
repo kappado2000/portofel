@@ -276,14 +276,61 @@ class EonApi {
     return readings;
   }
 
-  /// Întoarce facturile neachitate de pe toate contractele contului.
-  Future<List<Bill>> fetchOpenBills(String username, String password) async {
+  /// Întoarce facturile neachitate de pe toate contractele contului și,
+  /// pentru contractele prezente în [since], toate facturile emise după data
+  /// respectivă (data ultimei facturi salvate în istoric), chiar dacă sunt
+  /// deja achitate la furnizor.
+  Future<List<Bill>> fetchOpenBills(
+    String username,
+    String password, {
+    Map<String, DateTime> since = const {},
+  }) async {
     await ensureSession(username, password);
 
     final contracts = await _fetchContracts(username, password);
     final bills = <Bill>[];
     final seen = <String>{};
     final now = DateTime.now();
+
+    Future<void> add(Map item, String code, String address, bool open) async {
+      final issued = parseAmount(item['issuedValue']);
+      final rest = !open
+          ? issued
+          : item.containsKey('balanceValue')
+          ? parseAmount(item['balanceValue'])
+          : issued;
+      if (rest <= 0) return;
+      final number = '${item['invoiceNumber'] ?? item['fiscalNumber'] ?? ''}'
+          .trim();
+      final id = Bill.buildId(
+        BillProvider.eon,
+        code,
+        number.isEmpty ? '${item['maturityDate'] ?? ''}' : number,
+      );
+      if (!seen.add(id)) return;
+      final interval = number.isEmpty
+          ? null
+          : await _invoiceInterval(number, username, password);
+      bills.add(
+        Bill(
+          id: id,
+          provider: BillProvider.eon,
+          contractCode: code,
+          address: address,
+          invoiceNumber: number,
+          amount: issued > 0 ? issued : rest,
+          balance: rest,
+          issueDate: parseBillDate(item['emissionDate']),
+          dueDate: parseBillDate(item['maturityDate']),
+          fetchedAt: now,
+          openAtProvider: open,
+          indexFrom: interval?.$1,
+          indexTo: interval?.$2,
+          readingType: interval?.$3 ?? '',
+          indexPeriod: interval?.$4 ?? '',
+        ),
+      );
+    }
 
     for (final contract in contracts) {
       final code = '${contract['accountContract'] ?? ''}'.trim();
@@ -302,40 +349,30 @@ class EonApi {
         );
       }
       for (final item in _asList(invResp.body)) {
-        final issued = parseAmount(item['issuedValue']);
-        final rest = item.containsKey('balanceValue')
-            ? parseAmount(item['balanceValue'])
-            : issued;
-        if (rest <= 0) continue;
-        final number = '${item['invoiceNumber'] ?? item['fiscalNumber'] ?? ''}'
-            .trim();
-        final id = Bill.buildId(
-          BillProvider.eon,
-          code,
-          number.isEmpty ? '${item['maturityDate'] ?? ''}' : number,
+        await add(item, code, address, true);
+      }
+
+      final from = since[code];
+      if (from == null) continue;
+      // Facturile achitate vin paginat, cele mai noi primele; ne oprim la
+      // prima pagină fără nicio factură mai nouă decât [from].
+      for (var page = 1; page <= 6; page++) {
+        final paidResp = await _authedGet(
+          '$_base/invoices/v1/invoices/list-paid'
+          '?accountContract=$code&status=paid&page=$page',
+          username,
+          password,
         );
-        if (!seen.add(id)) continue;
-        final interval = number.isEmpty
-            ? null
-            : await _invoiceInterval(number, username, password);
-        bills.add(
-          Bill(
-            indexFrom: interval?.$1,
-            indexTo: interval?.$2,
-            readingType: interval?.$3 ?? '',
-            indexPeriod: interval?.$4 ?? '',
-            id: id,
-            provider: BillProvider.eon,
-            contractCode: code,
-            address: address,
-            invoiceNumber: number,
-            amount: issued > 0 ? issued : rest,
-            balance: rest,
-            issueDate: parseBillDate(item['emissionDate']),
-            dueDate: parseBillDate(item['maturityDate']),
-            fetchedAt: now,
-          ),
-        );
+        if (paidResp.status != 200) break;
+        final items = _asList(paidResp.body);
+        var anyNewer = false;
+        for (final item in items) {
+          final issued = parseBillDate(item['emissionDate']);
+          if (issued == null || !issued.isAfter(from)) continue;
+          anyNewer = true;
+          await add(item, code, address, false);
+        }
+        if (!anyNewer || paidResp.map['hasNext'] != true) break;
       }
     }
     return bills;
