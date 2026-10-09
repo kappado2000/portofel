@@ -14,6 +14,7 @@ import '../widgets/transaction_tile.dart';
 import 'account_detail_screen.dart';
 import 'accounts_screen.dart';
 import 'add_transaction_screen.dart';
+import 'bills_screen.dart';
 import 'family_accounts_screen.dart';
 import 'history_screen.dart';
 import 'settings_screen.dart';
@@ -83,6 +84,14 @@ class _HomeScreenState extends State<HomeScreen> {
             onPressed: () => Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const HistoryScreen()),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.receipt_long_outlined),
+            tooltip: 'Facturi',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const BillsScreen()),
             ),
           ),
           IconButton(

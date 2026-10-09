@@ -1,0 +1,274 @@
+import 'dart:convert';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:hive_flutter/hive_flutter.dart';
+
+import '../models/bill.dart';
+import '../services/bill_http.dart';
+import '../services/eon_api.dart';
+import '../services/hidroelectrica_api.dart';
+
+/// Cere utilizatorului codul de verificare trimis de E.ON. Întoarce `null`
+/// dacă utilizatorul renunță.
+typedef MfaCodePrompt = Future<String?> Function(EonMfaRequired challenge);
+
+/// Facturile de utilități ale profilului activ. Facturile stau într-o cutie
+/// Hive per profil; datele de logare la furnizori stau în stocarea securizată
+/// a sistemului (Keychain / Keystore), nu în Hive.
+class BillsProvider extends ChangeNotifier {
+  static const _storage = FlutterSecureStorage();
+
+  Box? _billsBox;
+  Box? _metaBox;
+  String? _profileId;
+
+  List<Bill> _bills = [];
+  final Map<BillProvider, String> _usernames = {};
+  final Map<BillProvider, String> _errors = {};
+  bool _refreshing = false;
+
+  bool get refreshing => _refreshing;
+  bool get hasAnyAccount => _usernames.isNotEmpty;
+  bool isConnected(BillProvider p) => _usernames.containsKey(p);
+  String? usernameFor(BillProvider p) => _usernames[p];
+  String? errorFor(BillProvider p) => _errors[p];
+
+  DateTime? lastUpdated(BillProvider p) {
+    final v = _metaBox?.get('updated_${p.name}');
+    return v is String ? DateTime.tryParse(v) : null;
+  }
+
+  /// Facturile unui furnizor: întâi cele nebifate, apoi după scadență.
+  List<Bill> billsFor(BillProvider p) {
+    final list = _bills.where((b) => b.provider == p).toList();
+    list.sort((a, b) {
+      if (a.paid != b.paid) return a.paid ? 1 : -1;
+      final ad = a.dueDate ?? DateTime(9999);
+      final bd = b.dueDate ?? DateTime(9999);
+      return ad.compareTo(bd);
+    });
+    return list;
+  }
+
+  double _sum(Iterable<Bill> bills) => bills.fold(0, (s, b) => s + b.balance);
+
+  /// Totalul facturilor nebifate (opțional, doar ale unui furnizor).
+  double unpaidTotal([BillProvider? p]) =>
+      _sum(_bills.where((b) => !b.paid && (p == null || b.provider == p)));
+
+  /// Totalul facturilor bifate (opțional, doar ale unui furnizor).
+  double paidTotal([BillProvider? p]) =>
+      _sum(_bills.where((b) => b.paid && (p == null || b.provider == p)));
+
+  int get paidCount => _bills.where((b) => b.paid).length;
+
+  String _credKey(BillProvider p) => 'bills_${_profileId}_${p.name}';
+  String get _eonSessionKey => 'bills_${_profileId}_eon_session';
+
+  Future<void> loadProfile(String profileId) async {
+    if (_profileId == profileId) return;
+    await _billsBox?.close();
+    await _metaBox?.close();
+    _billsBox = await Hive.openBox('bills_$profileId');
+    _metaBox = await Hive.openBox('bills_meta_$profileId');
+    _profileId = profileId;
+    _bills = _billsBox!.values.map((m) => Bill.fromMap(Map.from(m))).toList();
+    _usernames.clear();
+    _errors.clear();
+    for (final p in BillProvider.values) {
+      final creds = await _readCreds(p);
+      if (creds != null) _usernames[p] = creds.$1;
+    }
+    notifyListeners();
+  }
+
+  Future<(String, String)?> _readCreds(BillProvider p) async {
+    try {
+      final raw = await _storage.read(key: _credKey(p));
+      if (raw == null) return null;
+      final map = jsonDecode(raw) as Map;
+      return ('${map['u']}', '${map['p']}');
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> saveAccount(
+    BillProvider p,
+    String username,
+    String password,
+  ) async {
+    await _storage.write(
+      key: _credKey(p),
+      value: jsonEncode({'u': username.trim(), 'p': password}),
+    );
+    if (p == BillProvider.eon) await _storage.delete(key: _eonSessionKey);
+    _usernames[p] = username.trim();
+    _errors.remove(p);
+    notifyListeners();
+  }
+
+  /// Deconectează furnizorul și șterge facturile lui nebifate.
+  Future<void> removeAccount(BillProvider p) async {
+    await _storage.delete(key: _credKey(p));
+    if (p == BillProvider.eon) await _storage.delete(key: _eonSessionKey);
+    _usernames.remove(p);
+    _errors.remove(p);
+    final gone = _bills.where((b) => b.provider == p && !b.paid).toList();
+    for (final b in gone) {
+      _bills.remove(b);
+      await _billsBox?.delete(b.id);
+    }
+    await _metaBox?.delete('updated_${p.name}');
+    notifyListeners();
+  }
+
+  /// Actualizează facturile de la toți furnizorii conectați. Erorile sunt
+  /// reținute per furnizor (vezi [errorFor]) — un furnizor căzut nu îl
+  /// blochează pe celălalt.
+  Future<void> refresh({required MfaCodePrompt askMfaCode}) async {
+    if (_refreshing || _profileId == null) return;
+    _refreshing = true;
+    _errors.clear();
+    notifyListeners();
+    try {
+      for (final p in BillProvider.values) {
+        final creds = await _readCreds(p);
+        if (creds == null) continue;
+        try {
+          final fetched = p == BillProvider.hidroelectrica
+              ? await _fetchHidro(creds)
+              : await _fetchEon(creds, askMfaCode);
+          if (fetched == null) {
+            _errors[p] = 'Actualizare anulată: lipsește codul de verificare.';
+            continue;
+          }
+          await _merge(p, fetched);
+          await _metaBox?.put(
+            'updated_${p.name}',
+            DateTime.now().toIso8601String(),
+          );
+        } on BillFetchException catch (e) {
+          _errors[p] = e.message;
+        } catch (_) {
+          _errors[p] =
+              '${billProviderLabel(p)}: răspuns neașteptat de la furnizor.';
+        }
+        notifyListeners();
+      }
+    } finally {
+      _refreshing = false;
+      notifyListeners();
+    }
+  }
+
+  Future<List<Bill>> _fetchHidro((String, String) creds) async {
+    final api = HidroelectricaApi();
+    try {
+      await api.login(creds.$1, creds.$2);
+      return await api.fetchOpenBills();
+    } finally {
+      api.close();
+    }
+  }
+
+  Future<List<Bill>?> _fetchEon(
+    (String, String) creds,
+    MfaCodePrompt askMfaCode,
+  ) async {
+    final api = EonApi();
+    try {
+      try {
+        final raw = await _storage.read(key: _eonSessionKey);
+        if (raw != null) {
+          api.restoreSession(Map<String, dynamic>.from(jsonDecode(raw) as Map));
+        }
+      } catch (_) {
+        // Sesiune salvată coruptă: se face logare completă.
+      }
+      List<Bill> bills;
+      try {
+        bills = await api.fetchOpenBills(creds.$1, creds.$2);
+      } on EonMfaRequired catch (challenge) {
+        final code = await askMfaCode(challenge);
+        if (code == null || code.trim().isEmpty) return null;
+        await api.completeMfa(challenge.uuid, code);
+        bills = await api.fetchOpenBills(creds.$1, creds.$2);
+      }
+      final session = api.exportSession();
+      if (session != null) {
+        await _storage.write(key: _eonSessionKey, value: jsonEncode(session));
+      }
+      return bills;
+    } finally {
+      api.close();
+    }
+  }
+
+  Future<void> _merge(BillProvider p, List<Bill> fetched) async {
+    final fetchedIds = <String>{};
+    for (final f in fetched) {
+      fetchedIds.add(f.id);
+      final existing = _bills.where((b) => b.id == f.id).firstOrNull;
+      if (existing == null) {
+        _bills.add(f);
+        await _billsBox?.put(f.id, f.toMap());
+      } else {
+        existing
+          ..amount = f.amount
+          ..balance = f.balance
+          ..address = f.address
+          ..issueDate = f.issueDate ?? existing.issueDate
+          ..dueDate = f.dueDate ?? existing.dueDate
+          ..fetchedAt = f.fetchedAt
+          ..openAtProvider = true;
+        await _billsBox?.put(existing.id, existing.toMap());
+      }
+    }
+    // Facturile care nu mai apar ca neachitate la furnizor: cele nebifate
+    // dispar din listă, cele bifate rămân până le șterge utilizatorul.
+    final closed = _bills
+        .where((b) => b.provider == p && !fetchedIds.contains(b.id))
+        .toList();
+    for (final b in closed) {
+      if (b.paid) {
+        b.openAtProvider = false;
+        await _billsBox?.put(b.id, b.toMap());
+      } else {
+        _bills.remove(b);
+        await _billsBox?.delete(b.id);
+      }
+    }
+  }
+
+  Future<void> setPaid(Bill bill, bool paid) async {
+    bill
+      ..paid = paid
+      ..paidAt = paid ? DateTime.now() : null;
+    await _billsBox?.put(bill.id, bill.toMap());
+    notifyListeners();
+  }
+
+  /// Bifează sau debifează toate facturile unui furnizor.
+  Future<void> setSectionPaid(BillProvider p, bool paid) async {
+    final now = DateTime.now();
+    for (final b in _bills.where((b) => b.provider == p && b.paid != paid)) {
+      b
+        ..paid = paid
+        ..paidAt = paid ? now : null;
+      await _billsBox?.put(b.id, b.toMap());
+    }
+    notifyListeners();
+  }
+
+  /// Șterge din listă toate facturile bifate.
+  Future<void> removePaid() async {
+    final gone = _bills.where((b) => b.paid).toList();
+    for (final b in gone) {
+      _bills.remove(b);
+      await _billsBox?.delete(b.id);
+    }
+    notifyListeners();
+  }
+}

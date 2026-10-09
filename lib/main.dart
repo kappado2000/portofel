@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'providers/bills_provider.dart';
 import 'providers/money_provider.dart';
 import 'providers/profile_provider.dart';
 import 'screens/home_screen.dart';
@@ -11,12 +12,14 @@ Future<void> main() async {
   final profileProvider = ProfileProvider();
   await profileProvider.init();
   final moneyProvider = MoneyProvider();
+  final billsProvider = BillsProvider();
 
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider.value(value: profileProvider),
         ChangeNotifierProvider.value(value: moneyProvider),
+        ChangeNotifierProvider.value(value: billsProvider),
       ],
       child: const PortofelApp(),
     ),
@@ -69,7 +72,9 @@ class _AuthGateState extends State<AuthGate> {
   Future<void> _ensureLoaded(String profileId) async {
     if (_loading || _loadedProfileId == profileId) return;
     _loading = true;
+    final bills = context.read<BillsProvider>();
     await context.read<MoneyProvider>().loadProfile(profileId);
+    await bills.loadProfile(profileId);
     if (!mounted) return;
     setState(() {
       _loadedProfileId = profileId;
