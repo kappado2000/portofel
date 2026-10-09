@@ -37,9 +37,7 @@ class BillsHistoryScreen extends StatelessWidget {
         title: const Text('Întorci factura în lista de facturi?'),
         content: Text(
           '${billProviderLabel(bill.provider)}, ${_lei(bill.balance)}. '
-          '${billDatesLine(bill)}.
-
-'
+          '${billDatesLine(bill)}.\n\n'
           'Factura iese din istoric și reapare în lista de facturi, '
           'nebifată.',
         ),
