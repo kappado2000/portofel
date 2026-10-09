@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/account.dart';
+import '../models/bill.dart';
 
 /// Gradient de fundal pentru cardul unui cont, pe baza tipului/valutei —
 /// mai viu decât un fundal neutru plat, dar suficient de aproape de
@@ -43,3 +44,14 @@ BoxDecoration heroCardDecoration({double radius = 20}) => BoxDecoration(
     ),
   ],
 );
+
+/// Paleta unui furnizor de utilități — albastru pentru Hidroelectrica,
+/// portocaliu pentru E.ON — derivată pentru tema curentă, ca secțiunile lor
+/// să se deosebească dintr-o privire. Roșul rămâne rezervat restanțelor.
+ColorScheme billProviderScheme(BuildContext context, BillProvider provider) =>
+    ColorScheme.fromSeed(
+      seedColor: provider == BillProvider.hidroelectrica
+          ? const Color(0xFF1565C0)
+          : const Color(0xFFEF6C00),
+      brightness: Theme.of(context).brightness,
+    );

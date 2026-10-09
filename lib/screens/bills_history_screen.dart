@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../models/account.dart';
 import '../models/bill.dart';
 import '../providers/bills_provider.dart';
+import '../utils/card_styles.dart';
 import '../utils/formatters.dart';
 import '../widgets/bill_index_badge.dart';
 import 'bill_pdf_screen.dart';
@@ -183,10 +184,21 @@ class _HistoryTile extends StatelessWidget {
     final place = bill.address.isNotEmpty
         ? bill.address
         : 'Cod ${bill.contractCode}';
+    final tint = billProviderScheme(context, bill.provider);
+
     return ListTile(
+      leading: CircleAvatar(
+        radius: 16,
+        backgroundColor: tint.primaryContainer,
+        foregroundColor: tint.onPrimaryContainer,
+        child: Text(
+          billProviderLabel(bill.provider)[0],
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+      ),
       title: Text(
         '${billProviderLabel(bill.provider)} · ${_lei(bill.amount)}',
-        style: const TextStyle(fontWeight: FontWeight.w600),
+        style: TextStyle(fontWeight: FontWeight.w600, color: tint.primary),
       ),
       subtitle: Text(
         [

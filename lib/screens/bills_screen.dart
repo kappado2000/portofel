@@ -534,6 +534,7 @@ class _ProviderSection extends StatelessWidget {
     final locations = provider.visibleLocationsFor(billProvider);
 
     final paidCount = bills.where((b) => b.paid).length;
+    final tint = billProviderScheme(context, billProvider);
     final bool? sectionValue = bills.isEmpty || paidCount == 0
         ? false
         : (paidCount == bills.length ? true : null);
@@ -541,15 +542,22 @@ class _ProviderSection extends StatelessWidget {
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: tint.primary.withValues(alpha: 0.5)),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Padding(
+          Container(
+            color: tint.primaryContainer,
             padding: const EdgeInsets.fromLTRB(4, 8, 16, 8),
             child: Row(
               children: [
                 Checkbox(
                   tristate: true,
+                  activeColor: tint.primary,
+                  checkColor: tint.onPrimary,
                   value: sectionValue,
                   onChanged: bills.isEmpty
                       ? null
@@ -562,7 +570,13 @@ class _ProviderSection extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(name, style: textTheme.titleMedium),
+                      Text(
+                        name,
+                        style: textTheme.titleMedium?.copyWith(
+                          color: tint.onPrimaryContainer,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                       Text(
                         !connected
                             ? 'Neconectat'
@@ -570,7 +584,7 @@ class _ProviderSection extends StatelessWidget {
                             ? 'Încă neactualizat'
                             : 'Actualizat ${dateTimeFormat.format(updated)}',
                         style: textTheme.bodySmall?.copyWith(
-                          color: scheme.onSurfaceVariant,
+                          color: tint.onPrimaryContainer,
                         ),
                       ),
                     ],
@@ -582,12 +596,14 @@ class _ProviderSection extends StatelessWidget {
                     children: [
                       Text(
                         _lei(provider.unpaidTotal(billProvider)),
-                        style: textTheme.titleMedium,
+                        style: textTheme.titleMedium?.copyWith(
+                          color: tint.onPrimaryContainer,
+                        ),
                       ),
                       Text(
                         'bifate ${_lei(provider.paidTotal(billProvider))}',
                         style: textTheme.bodySmall?.copyWith(
-                          color: scheme.onSurfaceVariant,
+                          color: tint.onPrimaryContainer,
                         ),
                       ),
                     ],
@@ -630,15 +646,11 @@ class _ProviderSection extends StatelessWidget {
             for (final location in locations) ...[
               const Divider(height: 1),
               Container(
-                color: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                color: tint.primaryContainer.withValues(alpha: 0.35),
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
                 child: Row(
                   children: [
-                    Icon(
-                      Icons.place_outlined,
-                      size: 18,
-                      color: scheme.onSurfaceVariant,
-                    ),
+                    Icon(Icons.place_outlined, size: 18, color: tint.primary),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
