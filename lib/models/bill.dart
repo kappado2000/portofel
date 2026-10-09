@@ -14,6 +14,9 @@ class Bill {
   final String id;
   final BillProvider provider;
   final String contractCode;
+
+  /// Contul de furnizor din care a fost preluată (vezi `BillAccount`).
+  String accountId;
   String address;
   String invoiceNumber;
   double amount;
@@ -34,6 +37,7 @@ class Bill {
     required this.id,
     required this.provider,
     required this.contractCode,
+    this.accountId = '',
     this.address = '',
     this.invoiceNumber = '',
     required this.amount,
@@ -70,6 +74,7 @@ class Bill {
     'id': id,
     'provider': provider.name,
     'contractCode': contractCode,
+    'accountId': accountId,
     'address': address,
     'invoiceNumber': invoiceNumber,
     'amount': amount,
@@ -94,6 +99,7 @@ class Bill {
       orElse: () => BillProvider.hidroelectrica,
     ),
     contractCode: map['contractCode'] as String? ?? '',
+    accountId: map['accountId'] as String? ?? '',
     address: map['address'] as String? ?? '',
     invoiceNumber: map['invoiceNumber'] as String? ?? '',
     amount: (map['amount'] as num?)?.toDouble() ?? 0,

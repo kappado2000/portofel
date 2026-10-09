@@ -11,7 +11,11 @@ import '../services/eon_api.dart';
 import '../utils/formatters.dart';
 
 /// Cere codul de verificare trimis de E.ON. Întoarce `null` la renunțare.
-Future<String?> askEonMfaCode(BuildContext context, EonMfaRequired challenge) {
+Future<String?> askEonMfaCode(
+  BuildContext context,
+  EonMfaRequired challenge,
+  String username,
+) {
   final controller = TextEditingController();
   final via = challenge.type == 'SMS' ? 'SMS' : 'email';
   final to = challenge.recipient.isEmpty ? '' : ' la ${challenge.recipient}';
@@ -24,7 +28,10 @@ Future<String?> askEonMfaCode(BuildContext context, EonMfaRequired challenge) {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('E.ON a trimis un cod prin $via$to. Introdu-l mai jos.'),
+          Text(
+            'Pentru contul $username, E.ON a trimis un cod prin $via$to. '
+            'Introdu-l mai jos.',
+          ),
           const SizedBox(height: 12),
           TextField(
             controller: controller,
@@ -68,8 +75,9 @@ Future<void> openBillPdf(BuildContext context, Bill bill) async {
   try {
     pdf = await provider.fetchPdf(
       bill,
-      askMfaCode: (challenge) =>
-          context.mounted ? askEonMfaCode(context, challenge) : Future.value(),
+      askMfaCode: (challenge, username) => context.mounted
+          ? askEonMfaCode(context, challenge, username)
+          : Future.value(),
     );
   } on BillFetchException catch (e) {
     error = e.message;

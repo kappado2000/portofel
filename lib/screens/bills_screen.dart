@@ -33,26 +33,32 @@ class _BillsScreenState extends State<BillsScreen> {
   Future<void> _refresh() =>
       context.read<BillsProvider>().refresh(askMfaCode: _askMfaCode);
 
-  Future<String?> _askMfaCode(EonMfaRequired challenge) async {
+  Future<String?> _askMfaCode(EonMfaRequired challenge, String username) async {
     if (!mounted) return null;
-    return askEonMfaCode(context, challenge);
+    return askEonMfaCode(context, challenge, username);
   }
 
-  Future<void> _editAccount(BillProvider p) async {
+  /// Formularul unui cont: cu [account] îl modifică pe acela, fără el
+  /// adaugă un cont nou la furnizorul [p].
+  Future<void> _editAccount(BillProvider p, {BillAccount? account}) async {
     final provider = context.read<BillsProvider>();
-    final userCtrl = TextEditingController(text: provider.usernameFor(p) ?? '');
+    final userCtrl = TextEditingController(text: account?.username ?? '');
     final passCtrl = TextEditingController(
-      text: await provider.passwordFor(p) ?? '',
+      text: account == null ? '' : await provider.passwordFor(account.id) ?? '',
     );
     if (!mounted) return;
-    final connected = provider.isConnected(p);
+    final connected = account != null;
     var obscure = true;
 
     final action = await showDialog<String>(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocal) => AlertDialog(
-          title: Text('Cont ${billProviderLabel(p)}'),
+          title: Text(
+            account == null
+                ? 'Cont nou ${billProviderLabel(p)}'
+                : 'Cont ${billProviderLabel(p)}',
+          ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -115,7 +121,7 @@ class _BillsScreenState extends State<BillsScreen> {
 
     if (!mounted || action == null) return;
     if (action == 'remove') {
-      await provider.removeAccount(p);
+      await provider.removeAccount(account!.id);
       return;
     }
     if (userCtrl.text.trim().isEmpty || passCtrl.text.isEmpty) {
@@ -124,8 +130,70 @@ class _BillsScreenState extends State<BillsScreen> {
       );
       return;
     }
-    await provider.saveAccount(p, userCtrl.text, passCtrl.text);
+    await provider.saveAccount(
+      id: account?.id,
+      provider: p,
+      username: userCtrl.text,
+      password: passCtrl.text,
+    );
     if (mounted) await _refresh();
+  }
+
+  /// Lista conturilor conectate, cu adăugare și modificare.
+  Future<void> _manageAccounts() async {
+    final choice = await showDialog<(BillProvider, BillAccount?)>(
+      context: context,
+      builder: (ctx) {
+        final provider = ctx.watch<BillsProvider>();
+        return AlertDialog(
+          title: const Text('Conturi furnizori'),
+          contentPadding: const EdgeInsets.fromLTRB(0, 16, 0, 0),
+          content: SizedBox(
+            width: 420,
+            child: ListView(
+              shrinkWrap: true,
+              children: [
+                for (final p in BillProvider.values) ...[
+                  for (final a in provider.accountsFor(p))
+                    ListTile(
+                      leading: CircleAvatar(
+                        radius: 16,
+                        backgroundColor: billProviderScheme(
+                          ctx,
+                          p,
+                        ).primaryContainer,
+                        foregroundColor: billProviderScheme(
+                          ctx,
+                          p,
+                        ).onPrimaryContainer,
+                        child: Text(billProviderLabel(p)[0]),
+                      ),
+                      title: Text(a.username),
+                      subtitle: Text(billProviderLabel(p)),
+                      trailing: const Icon(Icons.edit_outlined),
+                      onTap: () => Navigator.pop(ctx, (p, a)),
+                    ),
+                  ListTile(
+                    leading: const Icon(Icons.add),
+                    title: Text('Adaugă cont ${billProviderLabel(p)}'),
+                    onTap: () => Navigator.pop(ctx, (p, null)),
+                  ),
+                  if (p != BillProvider.values.last) const Divider(height: 1),
+                ],
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Închide'),
+            ),
+          ],
+        );
+      },
+    );
+    if (choice == null || !mounted) return;
+    await _editAccount(choice.$1, account: choice.$2);
   }
 
   Future<void> _saveToHistory() async {
@@ -331,10 +399,8 @@ class _BillsScreenState extends State<BillsScreen> {
           PopupMenuButton<String>(
             onSelected: (v) {
               switch (v) {
-                case 'hidro':
-                  _editAccount(BillProvider.hidroelectrica);
-                case 'eon':
-                  _editAccount(BillProvider.eon);
+                case 'accounts':
+                  _manageAccounts();
                 case 'start':
                   _chooseStartDate();
                 case 'addresses':
@@ -345,10 +411,9 @@ class _BillsScreenState extends State<BillsScreen> {
             },
             itemBuilder: (_) => [
               const PopupMenuItem(
-                value: 'hidro',
-                child: Text('Cont Hidroelectrica'),
+                value: 'accounts',
+                child: Text('Conturi furnizori'),
               ),
-              const PopupMenuItem(value: 'eon', child: Text('Cont E.ON')),
               const PopupMenuItem(
                 value: 'start',
                 child: Text('Facturi începând cu…'),
@@ -529,7 +594,8 @@ class _ProviderSection extends StatelessWidget {
     final name = billProviderLabel(billProvider);
     final bills = provider.billsFor(billProvider);
     final connected = provider.isConnected(billProvider);
-    final error = provider.errorFor(billProvider);
+    final errors = provider.errorsFor(billProvider);
+    final accountCount = provider.accountsFor(billProvider).length;
     final updated = provider.lastUpdated(billProvider);
     final locations = provider.visibleLocationsFor(billProvider);
 
@@ -578,11 +644,14 @@ class _ProviderSection extends StatelessWidget {
                         ),
                       ),
                       Text(
-                        !connected
-                            ? 'Neconectat'
-                            : updated == null
-                            ? 'Încă neactualizat'
-                            : 'Actualizat ${dateTimeFormat.format(updated)}',
+                        [
+                          if (accountCount > 1) '$accountCount conturi',
+                          !connected
+                              ? 'Neconectat'
+                              : updated == null
+                              ? 'Încă neactualizat'
+                              : 'Actualizat ${dateTimeFormat.format(updated)}',
+                        ].join(' · '),
                         style: textTheme.bodySmall?.copyWith(
                           color: tint.onPrimaryContainer,
                         ),
@@ -611,7 +680,7 @@ class _ProviderSection extends StatelessWidget {
               ],
             ),
           ),
-          if (error != null)
+          for (final error in errors)
             Container(
               color: scheme.errorContainer,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
