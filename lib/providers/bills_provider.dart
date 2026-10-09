@@ -81,9 +81,16 @@ class BillsProvider extends ChangeNotifier {
       if (key.startsWith('${p.name}|')) key.substring(p.name.length + 1),
   };
 
-  /// Facturile salvate în istoric, cele mai recent achitate primele.
+  /// Facturile salvate în istoric, cele mai recent achitate primele — doar
+  /// ale adreselor alese pentru afișare, la fel ca lista de facturi.
   List<Bill> get archivedBills {
-    final list = _bills.where((b) => b.archived).toList();
+    final list = _bills
+        .where(
+          (b) =>
+              b.archived &&
+              !_hidden.contains(_locKey(b.provider, b.contractCode)),
+        )
+        .toList();
     list.sort(
       (a, b) => (b.paidAt ?? b.fetchedAt).compareTo(a.paidAt ?? a.fetchedAt),
     );
