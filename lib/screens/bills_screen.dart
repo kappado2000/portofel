@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 
 import '../models/account.dart';
 import '../models/bill.dart';
-import '../models/meter_reading.dart';
 import '../providers/bills_provider.dart';
 import '../services/eon_api.dart';
 import '../utils/card_styles.dart';
@@ -340,7 +339,6 @@ class _ProviderSection extends StatelessWidget {
     final connected = provider.isConnected(billProvider);
     final error = provider.errorFor(billProvider);
     final updated = provider.lastUpdated(billProvider);
-    final meters = provider.metersFor(billProvider);
 
     final paidCount = bills.where((b) => b.paid).length;
     final bool? sectionValue = bills.isEmpty || paidCount == 0
@@ -440,11 +438,6 @@ class _ProviderSection extends StatelessWidget {
               const Divider(height: 1),
               _BillTile(bill: bill),
             ],
-          if (connected)
-            for (final meter in meters) ...[
-              const Divider(height: 1),
-              _MeterTile(meter: meter),
-            ],
         ],
       ),
     );
@@ -520,38 +513,6 @@ class _BillTile extends StatelessWidget {
             ),
         ],
       ),
-    );
-  }
-}
-
-class _MeterTile extends StatelessWidget {
-  final MeterReading meter;
-
-  const _MeterTile({required this.meter});
-
-  @override
-  Widget build(BuildContext context) {
-    final date = meter.date;
-    final value = meter.value == meter.value.roundToDouble()
-        ? indexFormat.format(meter.value)
-        : formatNumber(meter.value);
-    final details = [
-      if (meter.meterNumber.isNotEmpty) 'Contor ${meter.meterNumber}',
-      if (date != null) 'citit ${dateFormat.format(date)}',
-    ].join(' · ');
-    final place = meter.address.isNotEmpty
-        ? meter.address
-        : 'Cod ${meter.contractCode}';
-
-    return ListTile(
-      leading: const Icon(Icons.speed_outlined),
-      title: Text(
-        meter.label.isEmpty
-            ? 'Ultimul index: $value'
-            : 'Ultimul index: $value (${meter.label})',
-      ),
-      subtitle: Text(details.isEmpty ? place : '$place\n$details'),
-      isThreeLine: details.isNotEmpty,
     );
   }
 }

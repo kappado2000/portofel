@@ -3,7 +3,6 @@ import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:portofel/models/bill.dart';
-import 'package:portofel/models/meter_reading.dart';
 import 'package:portofel/services/bill_http.dart';
 import 'package:portofel/utils/formatters.dart';
 
@@ -52,25 +51,6 @@ void main() {
       'Index 1.200 → 1.350 (autocitire, 01.08.2026 – 31.08.2026)',
     );
     expect(Bill.fromMap(bill.toMap()..remove('archived')).archived, isFalse);
-  });
-
-  test('MeterReading round-trips through map serialization', () {
-    final reading = MeterReading(
-      provider: BillProvider.hidroelectrica,
-      contractCode: '8000123',
-      address: 'Strada Mare 1',
-      meterNumber: 'C-77',
-      label: 'Energie activă',
-      value: 12345,
-      date: DateTime(2026, 9, 30),
-    );
-    final restored = MeterReading.fromMap(reading.toMap());
-    expect(restored.provider, BillProvider.hidroelectrica);
-    expect(restored.contractCode, '8000123');
-    expect(restored.meterNumber, 'C-77');
-    expect(restored.label, 'Energie activă');
-    expect(restored.value, 12345);
-    expect(restored.date, DateTime(2026, 9, 30));
   });
 
   test('isOverdue ignores paid bills and bills without due date', () {

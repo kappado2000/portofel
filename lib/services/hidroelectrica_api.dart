@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import '../models/bill.dart';
-import '../models/meter_reading.dart';
 import 'bill_http.dart';
 
 /// Preia soldul facturilor din contul Hidroelectrica (iHidro), prin API-ul
@@ -344,41 +343,6 @@ class HidroelectricaApi {
     } catch (_) {
       return null;
     }
-  }
-
-  /// Întoarce ultimul index înregistrat pentru fiecare registru de contor
-  /// (consum și, la prosumatori, producție). Apelează [login] înainte.
-  Future<List<MeterReading>> fetchMeterReadings() async {
-    final readings = <MeterReading>[];
-
-    for (final entry in await _fetchAccounts()) {
-      final uan = (entry['UtilityAccountNumber'] ?? '').toString().trim();
-      // Cea mai recentă citire pentru fiecare registru.
-      final latest = <String, (DateTime, Map)>{};
-      for (final row in await _readHistory(entry)) {
-        final date = parseBillDate(row['Date'])!;
-        final register = '${row['Registers'] ?? ''}';
-        final current = latest[register];
-        if (current == null || date.isAfter(current.$1)) {
-          latest[register] = (date, row);
-        }
-      }
-      for (final item in latest.values) {
-        final row = item.$2;
-        readings.add(
-          MeterReading(
-            provider: BillProvider.hidroelectrica,
-            contractCode: uan,
-            address: (entry['Address'] ?? '').toString().trim(),
-            meterNumber: '${row['CounterSeries'] ?? ''}'.trim(),
-            label: '${row['RegisterDescription'] ?? ''}'.trim(),
-            value: parseAmount(row['Index']),
-            date: item.$1,
-          ),
-        );
-      }
-    }
-    return readings;
   }
 
   /// PDF-ul facturii curente a unui loc de consum, sau `null` dacă
