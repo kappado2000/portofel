@@ -767,52 +767,71 @@ class _BillTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+    final provider = context.read<BillsProvider>();
 
-    return CheckboxListTile(
-      value: bill.paid,
-      controlAffinity: ListTileControlAffinity.leading,
-      secondary: BillIndexBadge.hasIndex(bill)
-          ? BillIndexBadge(bill: bill)
-          : null,
-      onChanged: (v) => context.read<BillsProvider>().setPaid(bill, v ?? false),
-      title: Text(
-        _lei(bill.amount),
-        style: textTheme.titleLarge?.copyWith(
-          fontWeight: FontWeight.bold,
-          decoration: bill.paid ? TextDecoration.lineThrough : null,
-          color: bill.paid ? scheme.onSurfaceVariant : scheme.onSurface,
-        ),
-      ),
-      subtitle: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(billDatesLine(bill)),
-          InkWell(
-            onTap: () => openBillPdf(context, bill),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
+    return InkWell(
+      onTap: () => provider.setPaid(bill, !bill.paid),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(4, 10, 16, 10),
+        child: Row(
+          children: [
+            Checkbox(
+              value: bill.paid,
+              onChanged: (v) => provider.setPaid(bill, v ?? false),
+            ),
+            const SizedBox(width: 4),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(
-                    Icons.picture_as_pdf_outlined,
-                    size: 18,
-                    color: scheme.primary,
-                  ),
-                  const SizedBox(width: 6),
                   Text(
-                    'Deschide',
-                    style: TextStyle(
-                      color: scheme.primary,
-                      fontWeight: FontWeight.w600,
+                    _lei(bill.amount),
+                    style: textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      decoration: bill.paid ? TextDecoration.lineThrough : null,
+                      color: bill.paid
+                          ? scheme.onSurfaceVariant
+                          : scheme.onSurface,
                     ),
                   ),
+                  Text(
+                    billDatesLine(bill),
+                    style: textTheme.bodyMedium?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                  InkWell(
+                    onTap: () => openBillPdf(context, bill),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.picture_as_pdf_outlined,
+                            size: 18,
+                            color: scheme.primary,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Deschide',
+                            style: TextStyle(
+                              color: scheme.primary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  BillStatusText(bill: bill),
                 ],
               ),
             ),
-          ),
-          BillStatusText(bill: bill),
-        ],
+            const SizedBox(width: 12),
+            BillIndexBadge(bill: bill),
+          ],
+        ),
       ),
     );
   }

@@ -186,33 +186,45 @@ class _HistoryTile extends StatelessWidget {
         : 'Cod ${bill.contractCode}';
     final tint = billProviderScheme(context, bill.provider);
 
-    return ListTile(
-      leading: CircleAvatar(
-        radius: 16,
-        backgroundColor: tint.primaryContainer,
-        foregroundColor: tint.onPrimaryContainer,
-        child: Text(
-          billProviderLabel(bill.provider)[0],
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
-      ),
-      title: Text(
-        _lei(bill.amount),
-        style: Theme.of(context).textTheme.titleLarge
-            ?.copyWith(fontWeight: FontWeight.bold),
-      ),
-      subtitle: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    final scheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    final muted = textTheme.bodyMedium?.copyWith(
+      color: scheme.onSurfaceVariant,
+    );
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 10, 4, 10),
+      child: Row(
         children: [
-          Text(place),
-          Text(billDatesLine(bill)),
-          if (paidAt != null) Text('Achitată ${dateFormat.format(paidAt)}'),
-          BillStatusText(bill: bill),
-        ],
-      ),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
+          CircleAvatar(
+            radius: 16,
+            backgroundColor: tint.primaryContainer,
+            foregroundColor: tint.onPrimaryContainer,
+            child: Text(
+              billProviderLabel(bill.provider)[0],
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _lei(bill.amount),
+                  style: textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(place, style: muted),
+                Text(billDatesLine(bill), style: muted),
+                if (paidAt != null)
+                  Text('Achitată ${dateFormat.format(paidAt)}', style: muted),
+                BillStatusText(bill: bill),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
           BillIndexBadge(bill: bill),
           PopupMenuButton<String>(
             onSelected: (v) => switch (v) {
