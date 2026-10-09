@@ -489,7 +489,7 @@ class _TotalsCard extends StatelessWidget {
               _lei(value),
               style: const TextStyle(
                 color: Colors.white,
-                fontSize: 26,
+                fontSize: 18,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -503,8 +503,8 @@ class _TotalsCard extends StatelessWidget {
       decoration: heroCardDecoration(),
       child: Row(
         children: [
-          cell('Nebifate', unpaid),
-          const SizedBox(width: 12),
+          cell('Neachitate', unpaid),
+          const SizedBox(width: 20),
           cell('Total bifate', paid),
           const SizedBox(width: 12),
           FilledButton(
