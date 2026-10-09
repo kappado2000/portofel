@@ -397,9 +397,18 @@ class HidroelectricaApi {
     }
   }
 
-  /// PDF-ul facturii curente a unui loc de consum, sau `null` dacă
-  /// Hidroelectrica nu îl oferă. Apelează [login] înainte.
-  Future<Uint8List?> fetchCurrentBillPdf(String contractCode) async {
+  /// PDF-ul unei facturi, căutat după numărul ei ([invoiceNumber], cel din
+  /// istoricul de facturare). Întoarce `null` dacă nu se găsește.
+  ///
+  /// TEMPORAR: parametrul exact cerut de `GetBillPDF` nu e cunoscut, așa că
+  /// se încearcă pe rând mai multe variante, iar [log] reține ce a răspuns
+  /// serverul la fiecare (formă, nu conținut). Apelează [login] înainte.
+  Future<Uint8List?> fetchBillPdf(
+    String contractCode,
+    String invoiceNumber,
+    StringBuffer log,
+  ) async {
+    log.writeln('PDF Hidroelectrica ${DateTime.now()} factura=$invoiceNumber');
     final entry = (await _fetchAccounts())
         .where(
           (e) =>
@@ -407,47 +416,37 @@ class HidroelectricaApi {
               contractCode,
         )
         .firstOrNull;
-    if (entry == null) return null;
-    final resp = await _post('/Service/Billing/GetBill', {
+    if (entry == null) {
+      log.writeln('loc de consum negăsit');
+      return null;
+    }
+    final base = <String, dynamic>{
       'LanguageCode': 'RO',
       'UserID': _userId,
-      'IsBillPDF': '1',
       'UtilityAccountNumber': contractCode,
       'AccountNumber': (entry['AccountNumber'] ?? '').toString(),
-    });
-    return resp.status == 200 ? findPdf(resp) : null;
-  }
+      'IsBillPDF': '1',
+    };
 
-  /// TEMPORAR — diagnostic pentru găsirea PDF-ului facturii: încearcă mai
-  /// multe cereri posibile și descrie forma răspunsurilor (chei, tipuri,
-  /// lungimi), fără conținutul facturii. Apelează [login] înainte.
-  Future<String> diagnosePdf(String contractCode) async {
-    final out = StringBuffer(
-      'Diagnostic PDF Hidroelectrica ${DateTime.now()}\n',
-    );
-    final entry = (await _fetchAccounts())
+    final row = (await _billingHistory(entry))
         .where(
-          (e) =>
-              (e['UtilityAccountNumber'] ?? '').toString().trim() ==
-              contractCode,
+          (h) =>
+              invoiceNumber.isNotEmpty &&
+              _invoiceKey(h['exbel']) == _invoiceKey(invoiceNumber),
         )
         .firstOrNull;
-    if (entry == null) return '${out}loc de consum negăsit\n';
-    final account = (entry['AccountNumber'] ?? '').toString();
-    final base = {
-      'LanguageCode': 'RO',
-      'UserID': _userId,
-      'UtilityAccountNumber': contractCode,
-      'AccountNumber': account,
-    };
+    final encrypted = '${row?['invoiceId'] ?? ''}';
+    final exbel = '${row?['exbel'] ?? invoiceNumber}';
+    log.writeln(
+      'în istoric: ${row != null}, invoiceId len=${encrypted.length}, '
+      'exbel=$exbel',
+    );
 
     void describe(String indent, dynamic node, int depth) {
       if (node is Map) {
         node.forEach((k, v) {
           if (v is Map || v is List) {
-            out.writeln(
-              '$indent$k: ${v is Map ? 'Map(${v.length})' : 'List(${(v as List).length})'}',
-            );
+            out(log, '$indent$k: ${v is Map ? 'Map' : 'List'}');
             if (depth < 4) {
               describe(
                 '$indent  ',
@@ -457,81 +456,91 @@ class HidroelectricaApi {
             }
           } else {
             final text = '$v';
-            final short = text.length <= 40
+            final short = text.length <= 60
                 ? text
-                : '${text.substring(0, 16)}…';
-            out.writeln(
-              '$indent$k: ${v.runtimeType} len=${text.length} "$short"',
-            );
+                : '${text.substring(0, 24)}…';
+            out(log, '$indent$k: ${v.runtimeType} len=${text.length} "$short"');
           }
         });
-      } else if (node != null) {
-        out.writeln('$indent(${node.runtimeType})');
       }
     }
 
-    Future<Map?> attempt(
-      String label,
-      String path,
-      Map<String, dynamic> body,
-    ) async {
-      out.writeln('\n== $label  POST $path');
+    Future<Uint8List?> attempt(String label, Map<String, dynamic> extra) async {
+      log.writeln('\n== $label');
       try {
-        final r = await _post(path, body);
-        out.writeln(
-          'status=${r.status} bytes=${r.bytes.length} pdf=${findPdf(r) != null}',
+        final r = await _post('/Service/Billing/GetBillPDF', {
+          ...base,
+          ...extra,
+        });
+        var pdf = r.status == 200 ? findPdf(r) : null;
+        // Răspunsul poate conține doar adresa fișierului.
+        final url = pdf == null ? _findUrl(r.body) : null;
+        if (url != null) {
+          log.writeln('url găsit: ${Uri.tryParse(url)?.path}');
+          final file = await _http.send('GET', url);
+          pdf = findPdf(file);
+        }
+        log.writeln(
+          'status=${r.status} bytes=${r.bytes.length} pdf=${pdf != null}',
         );
-        describe('  ', r.body, 0);
-        return r.map;
-      } catch (e) {
-        out.writeln('eroare: $e');
+        final result = r.map['result'] ?? r.map['error'];
+        describe('  ', result, 0);
+        return pdf;
+      } on BillFetchException catch (e) {
+        log.writeln('eroare: $e');
         return null;
       }
     }
 
-    final bill = await attempt(
-      'GetBill IsBillPDF=1',
-      '/Service/Billing/GetBill',
-      {...base, 'IsBillPDF': '1'},
-    );
-    final result = bill?['result'];
-    final token = result is Map ? '${result['invoicenumber'] ?? ''}' : '';
-    await attempt('GetBill IsBillPDF=true', '/Service/Billing/GetBill', {
-      ...base,
-      'IsBillPDF': true,
-    });
-    final now = DateTime.now();
-    String day(DateTime d) =>
-        '${d.year}-${d.month.toString().padLeft(2, '0')}-'
-        '${d.day.toString().padLeft(2, '0')}';
-    await attempt(
-      'GetBillingHistoryList',
-      '/Service/Billing/GetBillingHistoryList',
-      {
-        ...base,
-        'FromDate': day(now.subtract(const Duration(days: 120))),
-        'ToDate': day(now),
-      },
-    );
-    for (final name in const [
-      'GetBillPDF',
-      'GetBillPdf',
-      'GetPaymentOverDueRemainderPDF',
-      'GetBillingPDF',
-      'DownloadBill',
-      'GetInvoicePDF',
-      'GetBillDetail',
-      'GetBillDetails',
-    ]) {
-      await attempt(name, '/Service/Billing/$name', {
-        ...base,
-        'IsBillPDF': '1',
-        'EncQuery': token,
-        'InvoiceId': token,
-        'invoicenumber': token,
-      });
+    final attempts = <(String, Map<String, dynamic>)>[
+      if (encrypted.isNotEmpty)
+        for (final key in const [
+          'InvoiceId',
+          'invoiceId',
+          'BillingId',
+          'InvoiceNumber',
+          'BillId',
+          'EncQuery',
+        ])
+          ('$key=invoiceId', {key: encrypted}),
+      for (final key in const [
+        'exbel',
+        'InvoiceNumber',
+        'InvoiceId',
+        'BillingId',
+        'BillNumber',
+      ])
+        ('$key=exbel', {key: exbel}),
+    ];
+    for (final (label, extra) in attempts) {
+      final pdf = await attempt(label, extra);
+      if (pdf != null) {
+        log.writeln('\nREUȘIT cu: $label');
+        return pdf;
+      }
     }
-    return out.toString();
+    log.writeln('\nnicio variantă nu a întors PDF');
+    return null;
+  }
+
+  static void out(StringBuffer log, String line) => log.writeln(line);
+
+  /// Prima adresă web dintr-un răspuns JSON, dacă există.
+  static String? _findUrl(dynamic node) {
+    if (node is String) {
+      final text = node.trim();
+      return text.startsWith('http') && !text.contains(' ') ? text : null;
+    }
+    final children = node is Map
+        ? node.values
+        : node is List
+        ? node
+        : const [];
+    for (final child in children) {
+      final found = _findUrl(child);
+      if (found != null) return found;
+    }
+    return null;
   }
 
   void close() => _http.close();

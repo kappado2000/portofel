@@ -535,40 +535,26 @@ class BillsProvider extends ChangeNotifier {
       );
     }
     if (bill.provider == BillProvider.hidroelectrica) {
-      // Hidroelectrica oferă doar PDF-ul facturii curente a locului de
-      // consum; pentru una mai veche s-ar deschide alt document.
-      final issued = bill.issueDate;
-      final hasNewer = _bills.any(
-        (b) =>
-            b.provider == bill.provider &&
-            b.contractCode == bill.contractCode &&
-            b.id != bill.id &&
-            issued != null &&
-            (b.issueDate?.isAfter(issued) ?? false),
-      );
-      if (hasNewer) {
-        throw BillFetchException(
-          'Hidroelectrica oferă doar PDF-ul celei mai recente facturi.',
-        );
-      }
       final api = HidroelectricaApi();
+      final log = StringBuffer();
       try {
         await api.login(creds.$1, creds.$2);
-        pdf = await api.fetchCurrentBillPdf(bill.contractCode);
-        if (pdf == null) {
-          // TEMPORAR: descrie răspunsurile furnizorului într-un fișier,
-          // ca să se poată găsi cererea corectă pentru PDF.
-          try {
-            final dir = await getApplicationDocumentsDirectory();
-            await File(
-              '${dir.path}${Platform.pathSeparator}portofel_hidro_diag.txt',
-            ).writeAsString(await api.diagnosePdf(bill.contractCode));
-          } catch (_) {
-            // Diagnosticul e opțional.
-          }
-        }
+        pdf = await api.fetchBillPdf(
+          bill.contractCode,
+          bill.invoiceNumber,
+          log,
+        );
       } finally {
         api.close();
+        // TEMPORAR: jurnalul încercărilor, până se confirmă cererea corectă.
+        try {
+          final dir = await getApplicationDocumentsDirectory();
+          await File(
+            '${dir.path}${Platform.pathSeparator}portofel_hidro_diag.txt',
+          ).writeAsString(log.toString());
+        } catch (_) {
+          // Jurnalul e opțional.
+        }
       }
     } else {
       if (bill.invoiceNumber.isEmpty) {
