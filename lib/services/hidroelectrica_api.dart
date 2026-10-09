@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import '../models/bill.dart';
 import '../models/meter_reading.dart';
@@ -378,6 +379,27 @@ class HidroelectricaApi {
       }
     }
     return readings;
+  }
+
+  /// PDF-ul facturii curente a unui loc de consum, sau `null` dacă
+  /// Hidroelectrica nu îl oferă. Apelează [login] înainte.
+  Future<Uint8List?> fetchCurrentBillPdf(String contractCode) async {
+    final entry = (await _fetchAccounts())
+        .where(
+          (e) =>
+              (e['UtilityAccountNumber'] ?? '').toString().trim() ==
+              contractCode,
+        )
+        .firstOrNull;
+    if (entry == null) return null;
+    final resp = await _post('/Service/Billing/GetBill', {
+      'LanguageCode': 'RO',
+      'UserID': _userId,
+      'IsBillPDF': '1',
+      'UtilityAccountNumber': contractCode,
+      'AccountNumber': (entry['AccountNumber'] ?? '').toString(),
+    });
+    return resp.status == 200 ? findPdf(resp) : null;
   }
 
   void close() => _http.close();

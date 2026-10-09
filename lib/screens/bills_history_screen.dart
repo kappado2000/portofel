@@ -6,6 +6,7 @@ import '../models/bill.dart';
 import '../providers/bills_provider.dart';
 import '../utils/formatters.dart';
 import '../widgets/bill_index_badge.dart';
+import 'bill_pdf_screen.dart';
 
 const _months = [
   'Ianuarie',
@@ -174,8 +175,13 @@ class _HistoryTile extends StatelessWidget {
         children: [
           BillIndexBadge(bill: bill),
           PopupMenuButton<String>(
-            onSelected: (v) => v == 'restore' ? onRestore() : onDelete(),
+            onSelected: (v) => switch (v) {
+              'pdf' => openBillPdf(context, bill),
+              'restore' => onRestore(),
+              _ => onDelete(),
+            },
             itemBuilder: (_) => const [
+              PopupMenuItem(value: 'pdf', child: Text('Deschide factura')),
               PopupMenuItem(value: 'restore', child: Text('Readu în listă')),
               PopupMenuItem(value: 'delete', child: Text('Șterge')),
             ],

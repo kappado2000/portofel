@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:portofel/models/bill.dart';
 import 'package:portofel/models/meter_reading.dart';
@@ -102,6 +105,32 @@ void main() {
     expect(parseAmount('-15,20'), -15.2);
     expect(parseAmount(null), 0);
     expect(parseAmount(''), 0);
+  });
+
+  test('findPdf locates a PDF as raw bytes or nested base64', () {
+    final pdf = Uint8List.fromList(utf8.encode('%PDF-1.7 ${'x' * 200}'));
+    expect(findPdf(JsonResponse(200, null, pdf)), pdf);
+
+    final nested = {
+      'result': {
+        'Data': [
+          {'name': 'factura.pdf', 'content': base64Encode(pdf)},
+        ],
+      },
+    };
+    expect(findPdf(JsonResponse(200, nested, Uint8List(0))), pdf);
+    expect(
+      findPdf(
+        JsonResponse(200, {
+          'file': 'data:application/pdf;base64,${base64Encode(pdf)}',
+        }, Uint8List(0)),
+      ),
+      pdf,
+    );
+    expect(
+      findPdf(JsonResponse(200, {'rembalance': '12,50'}, Uint8List(0))),
+      isNull,
+    );
   });
 
   test('parseBillDate handles provider date formats', () {

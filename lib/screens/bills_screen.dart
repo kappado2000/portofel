@@ -9,6 +9,7 @@ import '../services/eon_api.dart';
 import '../utils/card_styles.dart';
 import '../utils/formatters.dart';
 import '../widgets/bill_index_badge.dart';
+import 'bill_pdf_screen.dart';
 import 'bills_history_screen.dart';
 
 String _lei(double v) => formatAmount(v, AccountCurrency.ron);
@@ -35,44 +36,7 @@ class _BillsScreenState extends State<BillsScreen> {
 
   Future<String?> _askMfaCode(EonMfaRequired challenge) async {
     if (!mounted) return null;
-    final controller = TextEditingController();
-    final via = challenge.type == 'SMS' ? 'SMS' : 'email';
-    final to = challenge.recipient.isEmpty ? '' : ' la ${challenge.recipient}';
-    return showDialog<String>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Cod de verificare E.ON'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('E.ON a trimis un cod prin $via$to. Introdu-l mai jos.'),
-            const SizedBox(height: 12),
-            TextField(
-              controller: controller,
-              autofocus: true,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Cod',
-                border: OutlineInputBorder(),
-              ),
-              onSubmitted: (v) => Navigator.pop(ctx, v),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Renunță'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, controller.text),
-            child: const Text('Continuă'),
-          ),
-        ],
-      ),
-    );
+    return askEonMfaCode(context, challenge);
   }
 
   Future<void> _editAccount(BillProvider p) async {
@@ -526,6 +490,27 @@ class _BillTile extends StatelessWidget {
           Text(place),
           Text(billDatesLine(bill)),
           if (bill.invoiceNumber.isNotEmpty) Text('Nr. ${bill.invoiceNumber}'),
+          InkWell(
+            onTap: () => openBillPdf(context, bill),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.picture_as_pdf_outlined,
+                    size: 18,
+                    color: scheme.primary,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Deschide factura',
+                    style: TextStyle(color: scheme.primary),
+                  ),
+                ],
+              ),
+            ),
+          ),
           if (status != null)
             Text(
               status,

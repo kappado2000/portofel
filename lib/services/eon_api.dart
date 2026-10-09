@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import '../models/bill.dart';
 import '../models/meter_reading.dart';
 import 'bill_http.dart';
@@ -376,6 +378,22 @@ class EonApi {
       }
     }
     return bills;
+  }
+
+  /// PDF-ul unei facturi, sau `null` dacă E.ON nu îl oferă. Poate arunca
+  /// [EonMfaRequired] dacă sesiunea a expirat.
+  Future<Uint8List?> fetchInvoicePdf(
+    String invoiceNumber,
+    String username,
+    String password,
+  ) async {
+    await ensureSession(username, password);
+    final resp = await _authedGet(
+      '$_base/invoices/v1/invoices/$invoiceNumber/pdf',
+      username,
+      password,
+    );
+    return resp.status == 200 ? findPdf(resp) : null;
   }
 
   void close() => _http.close();

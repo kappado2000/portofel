@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 /// Eroare afișabilă utilizatorului, apărută la preluarea facturilor.
 class BillFetchException implements Exception {
@@ -14,7 +15,8 @@ class BillFetchException implements Exception {
 class JsonResponse {
   final int status;
   final dynamic body;
-  JsonResponse(this.status, this.body);
+  final Uint8List bytes;
+  JsonResponse(this.status, this.body, this.bytes);
 
   Map<String, dynamic> get map =>
       body is Map ? Map<String, dynamic>.from(body as Map) : const {};
@@ -53,17 +55,18 @@ class JsonHttp {
       for (final c in response.cookies) {
         cookies[c.name] = c.value;
       }
-      final text = await response
-          .transform(utf8.decoder)
-          .join()
-          .timeout(const Duration(seconds: 30));
+      final builder = BytesBuilder(copy: false);
+      await response.forEach(builder.add).timeout(const Duration(seconds: 60));
+      final bytes = builder.takeBytes();
       dynamic decoded;
       try {
-        decoded = text.isEmpty ? null : jsonDecode(text);
+        decoded = bytes.isEmpty || isPdf(bytes)
+            ? null
+            : jsonDecode(utf8.decode(bytes));
       } on FormatException {
         decoded = null;
       }
-      return JsonResponse(response.statusCode, decoded);
+      return JsonResponse(response.statusCode, decoded, bytes);
     } on SocketException {
       throw BillFetchException('Fără conexiune la internet.');
     } on TimeoutException {
@@ -114,4 +117,48 @@ DateTime? parseBillDate(dynamic value) {
   }
   final iso = DateTime.tryParse(s);
   return iso == null ? null : DateTime(iso.year, iso.month, iso.day);
+}
+
+bool isPdf(List<int> bytes) =>
+    bytes.length > 4 &&
+    bytes[0] == 0x25 &&
+    bytes[1] == 0x50 &&
+    bytes[2] == 0x44 &&
+    bytes[3] == 0x46;
+
+/// Găsește un PDF în răspunsul unui furnizor, oriunde ar fi: ca octeți
+/// bruți sau ca text base64 într-un câmp al JSON-ului. Întoarce `null`
+/// dacă răspunsul nu conține un PDF.
+Uint8List? findPdf(JsonResponse response) {
+  if (isPdf(response.bytes)) return response.bytes;
+
+  Uint8List? walk(dynamic node) {
+    if (node is String) {
+      var text = node.trim();
+      final comma = text.indexOf('base64,');
+      if (text.startsWith('data:') && comma > 0) {
+        text = text.substring(comma + 7);
+      }
+      // „%PDF” codat base64 începe mereu cu „JVBER”.
+      if (text.length < 100 || !text.startsWith('JVBER')) return null;
+      try {
+        final bytes = base64Decode(text.replaceAll(RegExp(r'\s'), ''));
+        return isPdf(bytes) ? bytes : null;
+      } on FormatException {
+        return null;
+      }
+    }
+    final children = node is Map
+        ? node.values
+        : node is List
+        ? node
+        : const [];
+    for (final child in children) {
+      final found = walk(child);
+      if (found != null) return found;
+    }
+    return null;
+  }
+
+  return walk(response.body);
 }

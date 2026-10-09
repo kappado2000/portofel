@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -249,9 +250,13 @@ class BillsProvider extends ChangeNotifier {
     }
   }
 
-  Future<(List<Bill>, List<MeterReading>?)?> _fetchEon(
+  /// Deschide o sesiune E.ON (cea salvată, sau logare cu cod de verificare
+  /// dacă e cazul), rulează [action] și salvează sesiunea. Întoarce `null`
+  /// dacă utilizatorul renunță la introducerea codului.
+  Future<T?> _withEon<T>(
     (String, String) creds,
     MfaCodePrompt askMfaCode,
+    Future<T> Function(EonApi api) action,
   ) async {
     final api = EonApi();
     try {
@@ -263,27 +268,89 @@ class BillsProvider extends ChangeNotifier {
       } catch (_) {
         // Sesiune salvată coruptă: se face logare completă.
       }
-      final since = _sinceFor(BillProvider.eon);
-      List<Bill> bills;
+      T result;
       try {
-        bills = await api.fetchOpenBills(creds.$1, creds.$2, since: since);
+        result = await action(api);
       } on EonMfaRequired catch (challenge) {
         final code = await askMfaCode(challenge);
         if (code == null || code.trim().isEmpty) return null;
         await api.completeMfa(challenge.uuid, code);
-        bills = await api.fetchOpenBills(creds.$1, creds.$2, since: since);
+        result = await action(api);
       }
-      final meters = await _tryMeters(
-        () => api.fetchMeterReadings(creds.$1, creds.$2),
-      );
       final session = api.exportSession();
       if (session != null) {
         await _storage.write(key: _eonSessionKey, value: jsonEncode(session));
       }
-      return (bills, meters);
+      return result;
     } finally {
       api.close();
     }
+  }
+
+  Future<(List<Bill>, List<MeterReading>?)?> _fetchEon(
+    (String, String) creds,
+    MfaCodePrompt askMfaCode,
+  ) {
+    final since = _sinceFor(BillProvider.eon);
+    return _withEon(creds, askMfaCode, (api) async {
+      final bills = await api.fetchOpenBills(creds.$1, creds.$2, since: since);
+      final meters = await _tryMeters(
+        () => api.fetchMeterReadings(creds.$1, creds.$2),
+      );
+      return (bills, meters);
+    });
+  }
+
+  /// Descarcă PDF-ul unei facturi de la furnizor. Aruncă
+  /// [BillFetchException] cu un mesaj afișabil dacă nu se poate.
+  Future<Uint8List> fetchPdf(
+    Bill bill, {
+    required MfaCodePrompt askMfaCode,
+  }) async {
+    final creds = await _readCreds(bill.provider);
+    final name = billProviderLabel(bill.provider);
+    if (creds == null) {
+      throw BillFetchException('Contul $name nu mai este conectat.');
+    }
+    Uint8List? pdf;
+    if (bill.provider == BillProvider.hidroelectrica) {
+      // Hidroelectrica oferă doar PDF-ul facturii curente a locului de
+      // consum; pentru una mai veche s-ar deschide alt document.
+      final issued = bill.issueDate;
+      final hasNewer = _bills.any(
+        (b) =>
+            b.provider == bill.provider &&
+            b.contractCode == bill.contractCode &&
+            b.id != bill.id &&
+            issued != null &&
+            (b.issueDate?.isAfter(issued) ?? false),
+      );
+      if (hasNewer) {
+        throw BillFetchException(
+          'Hidroelectrica oferă doar PDF-ul celei mai recente facturi.',
+        );
+      }
+      final api = HidroelectricaApi();
+      try {
+        await api.login(creds.$1, creds.$2);
+        pdf = await api.fetchCurrentBillPdf(bill.contractCode);
+      } finally {
+        api.close();
+      }
+    } else {
+      if (bill.invoiceNumber.isEmpty) {
+        throw BillFetchException('Factura nu are număr, nu poate fi deschisă.');
+      }
+      pdf = await _withEon<Uint8List?>(
+        creds,
+        askMfaCode,
+        (api) => api.fetchInvoicePdf(bill.invoiceNumber, creds.$1, creds.$2),
+      );
+    }
+    if (pdf == null) {
+      throw BillFetchException('$name nu a oferit PDF-ul acestei facturi.');
+    }
+    return pdf;
   }
 
   Future<void> _merge(BillProvider p, List<Bill> fetched) async {
