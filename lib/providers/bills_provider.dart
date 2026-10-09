@@ -1,9 +1,11 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
 import '../models/bill.dart';
@@ -553,6 +555,18 @@ class BillsProvider extends ChangeNotifier {
       try {
         await api.login(creds.$1, creds.$2);
         pdf = await api.fetchCurrentBillPdf(bill.contractCode);
+        if (pdf == null) {
+          // TEMPORAR: descrie răspunsurile furnizorului într-un fișier,
+          // ca să se poată găsi cererea corectă pentru PDF.
+          try {
+            final dir = await getApplicationDocumentsDirectory();
+            await File(
+              '${dir.path}${Platform.pathSeparator}portofel_hidro_diag.txt',
+            ).writeAsString(await api.diagnosePdf(bill.contractCode));
+          } catch (_) {
+            // Diagnosticul e opțional.
+          }
+        }
       } finally {
         api.close();
       }

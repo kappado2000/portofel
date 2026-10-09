@@ -146,6 +146,20 @@ class HidroelectricaApi {
     }
   }
 
+  /// „176,Mihai Viteazul,REGHIN,MS,545300” → „Mihai Viteazul 176, Reghin”.
+  static String _address(dynamic raw) {
+    final text = '${raw ?? ''}'.trim();
+    final parts = text.split(',').map((p) => p.trim()).toList();
+    if (parts.length < 3 || parts[1].isEmpty) return text;
+    String cap(String v) => v
+        .toLowerCase()
+        .split(' ')
+        .map((w) => w.isEmpty ? w : w[0].toUpperCase() + w.substring(1))
+        .join(' ');
+    final street = [parts[1], parts[0]].where((p) => p.isNotEmpty).join(' ');
+    return '$street, ${cap(parts[2])}';
+  }
+
   /// Un număr de factură afișabil: doar litere și cifre, altfel [fallback].
   static String _readable(String number, {String fallback = ''}) {
     final n = number.trim();
@@ -171,7 +185,7 @@ class HidroelectricaApi {
 
     for (final entry in await _fetchAccounts()) {
       final uan = (entry['UtilityAccountNumber'] ?? '').toString().trim();
-      final address = (entry['Address'] ?? '').toString().trim();
+      final address = _address(entry['Address']);
       locations[uan] = address;
       if (skip.contains(uan)) continue;
       final billResp = await _post('/Service/Billing/GetBill', {
@@ -402,6 +416,122 @@ class HidroelectricaApi {
       'AccountNumber': (entry['AccountNumber'] ?? '').toString(),
     });
     return resp.status == 200 ? findPdf(resp) : null;
+  }
+
+  /// TEMPORAR — diagnostic pentru găsirea PDF-ului facturii: încearcă mai
+  /// multe cereri posibile și descrie forma răspunsurilor (chei, tipuri,
+  /// lungimi), fără conținutul facturii. Apelează [login] înainte.
+  Future<String> diagnosePdf(String contractCode) async {
+    final out = StringBuffer(
+      'Diagnostic PDF Hidroelectrica ${DateTime.now()}\n',
+    );
+    final entry = (await _fetchAccounts())
+        .where(
+          (e) =>
+              (e['UtilityAccountNumber'] ?? '').toString().trim() ==
+              contractCode,
+        )
+        .firstOrNull;
+    if (entry == null) return '${out}loc de consum negăsit\n';
+    final account = (entry['AccountNumber'] ?? '').toString();
+    final base = {
+      'LanguageCode': 'RO',
+      'UserID': _userId,
+      'UtilityAccountNumber': contractCode,
+      'AccountNumber': account,
+    };
+
+    void describe(String indent, dynamic node, int depth) {
+      if (node is Map) {
+        node.forEach((k, v) {
+          if (v is Map || v is List) {
+            out.writeln(
+              '$indent$k: ${v is Map ? 'Map(${v.length})' : 'List(${(v as List).length})'}',
+            );
+            if (depth < 4) {
+              describe(
+                '$indent  ',
+                v is List ? (v.isEmpty ? null : v.first) : v,
+                depth + 1,
+              );
+            }
+          } else {
+            final text = '$v';
+            final short = text.length <= 40
+                ? text
+                : '${text.substring(0, 16)}…';
+            out.writeln(
+              '$indent$k: ${v.runtimeType} len=${text.length} "$short"',
+            );
+          }
+        });
+      } else if (node != null) {
+        out.writeln('$indent(${node.runtimeType})');
+      }
+    }
+
+    Future<Map?> attempt(
+      String label,
+      String path,
+      Map<String, dynamic> body,
+    ) async {
+      out.writeln('\n== $label  POST $path');
+      try {
+        final r = await _post(path, body);
+        out.writeln(
+          'status=${r.status} bytes=${r.bytes.length} pdf=${findPdf(r) != null}',
+        );
+        describe('  ', r.body, 0);
+        return r.map;
+      } catch (e) {
+        out.writeln('eroare: $e');
+        return null;
+      }
+    }
+
+    final bill = await attempt(
+      'GetBill IsBillPDF=1',
+      '/Service/Billing/GetBill',
+      {...base, 'IsBillPDF': '1'},
+    );
+    final result = bill?['result'];
+    final token = result is Map ? '${result['invoicenumber'] ?? ''}' : '';
+    await attempt('GetBill IsBillPDF=true', '/Service/Billing/GetBill', {
+      ...base,
+      'IsBillPDF': true,
+    });
+    final now = DateTime.now();
+    String day(DateTime d) =>
+        '${d.year}-${d.month.toString().padLeft(2, '0')}-'
+        '${d.day.toString().padLeft(2, '0')}';
+    await attempt(
+      'GetBillingHistoryList',
+      '/Service/Billing/GetBillingHistoryList',
+      {
+        ...base,
+        'FromDate': day(now.subtract(const Duration(days: 120))),
+        'ToDate': day(now),
+      },
+    );
+    for (final name in const [
+      'GetBillPDF',
+      'GetBillPdf',
+      'GetPaymentOverDueRemainderPDF',
+      'GetBillingPDF',
+      'DownloadBill',
+      'GetInvoicePDF',
+      'GetBillDetail',
+      'GetBillDetails',
+    ]) {
+      await attempt(name, '/Service/Billing/$name', {
+        ...base,
+        'IsBillPDF': '1',
+        'EncQuery': token,
+        'InvoiceId': token,
+        'invoicenumber': token,
+      });
+    }
+    return out.toString();
   }
 
   void close() => _http.close();
