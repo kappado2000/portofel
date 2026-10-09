@@ -13,6 +13,7 @@ final _eurFormat = NumberFormat.currency(
   decimalDigits: 2,
 );
 final _numberFormat = NumberFormat('#,##0.00', 'ro_RO');
+final indexFormat = NumberFormat('#,##0', 'ro_RO');
 final dateFormat = DateFormat('dd.MM.yyyy');
 final dateTimeFormat = DateFormat('dd.MM.yyyy HH:mm');
 

@@ -1,4 +1,5 @@
 import '../models/bill.dart';
+import '../models/meter_reading.dart';
 import 'bill_http.dart';
 
 /// E.ON cere un cod de verificare (email/SMS) pentru a finaliza logarea.
@@ -29,6 +30,7 @@ class EonApi {
   final JsonHttp _http = JsonHttp();
   String? _accessToken;
   DateTime? _expiresAt;
+  List<Map>? _contracts;
 
   bool get hasSession => _accessToken != null;
 
@@ -172,21 +174,73 @@ class EonApi {
     return resp;
   }
 
-  /// Întoarce facturile neachitate de pe toate contractele contului.
-  Future<List<Bill>> fetchOpenBills(String username, String password) async {
-    await ensureSession(username, password);
-
-    final contractsResp = await _authedGet(
+  /// Contractele contului (o singură cerere per sesiune).
+  Future<List<Map>> _fetchContracts(String username, String password) async {
+    final cached = _contracts;
+    if (cached != null) return cached;
+    final resp = await _authedGet(
       '$_base/partners/v2/account-contracts/list',
       username,
       password,
     );
-    if (contractsResp.status != 200) {
+    if (resp.status != 200) {
       throw BillFetchException(
-        'E.ON: nu am putut citi contractele (cod ${contractsResp.status}).',
+        'E.ON: nu am putut citi contractele (cod ${resp.status}).',
       );
     }
-    final contracts = _asList(contractsResp.body);
+    return _contracts = _asList(resp.body);
+  }
+
+  /// Întoarce ultimul index cunoscut pentru fiecare contor al contului.
+  Future<List<MeterReading>> fetchMeterReadings(
+    String username,
+    String password,
+  ) async {
+    await ensureSession(username, password);
+    final readings = <MeterReading>[];
+
+    for (final contract in await _fetchContracts(username, password)) {
+      final code = '${contract['accountContract'] ?? ''}'.trim();
+      if (code.isEmpty) continue;
+      final resp = await _authedGet(
+        '$_base/meterreadings/v1/meter-reading/$code/index',
+        username,
+        password,
+      );
+      if (resp.status != 200) continue;
+      final details = resp.map['indexDetails'];
+      final devices = details is Map ? details['devices'] : null;
+      if (devices is! List) continue;
+      for (final device in devices.whereType<Map>()) {
+        final indexes = device['indexes'];
+        if (indexes is! List || indexes.isEmpty || indexes.first is! Map) {
+          continue;
+        }
+        final index = indexes.first as Map;
+        final value = index['currentValue'] ?? index['oldValue'];
+        if (value == null) continue;
+        readings.add(
+          MeterReading(
+            provider: BillProvider.eon,
+            contractCode: code,
+            address: _address(contract['consumptionPointAddress']),
+            meterNumber: '${device['deviceNumber'] ?? ''}'.trim(),
+            value: parseAmount(value),
+            date: index['currentValue'] == null
+                ? null
+                : parseBillDate(index['sentAt']),
+          ),
+        );
+      }
+    }
+    return readings;
+  }
+
+  /// Întoarce facturile neachitate de pe toate contractele contului.
+  Future<List<Bill>> fetchOpenBills(String username, String password) async {
+    await ensureSession(username, password);
+
+    final contracts = await _fetchContracts(username, password);
     final bills = <Bill>[];
     final seen = <String>{};
     final now = DateTime.now();

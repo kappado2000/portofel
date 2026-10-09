@@ -5,6 +5,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 import '../models/bill.dart';
+import '../models/meter_reading.dart';
 import '../services/bill_http.dart';
 import '../services/eon_api.dart';
 import '../services/hidroelectrica_api.dart';
@@ -24,6 +25,7 @@ class BillsProvider extends ChangeNotifier {
   String? _profileId;
 
   List<Bill> _bills = [];
+  List<MeterReading> _meters = [];
   final Map<BillProvider, String> _usernames = {};
   final Map<BillProvider, String> _errors = {};
   bool _refreshing = false;
@@ -38,6 +40,10 @@ class BillsProvider extends ChangeNotifier {
     final v = _metaBox?.get('updated_${p.name}');
     return v is String ? DateTime.tryParse(v) : null;
   }
+
+  /// Ultimul index al fiecărui contor al unui furnizor.
+  List<MeterReading> metersFor(BillProvider p) =>
+      _meters.where((m) => m.provider == p).toList();
 
   /// Facturile unui furnizor: întâi cele nebifate, apoi după scadență.
   List<Bill> billsFor(BillProvider p) {
@@ -74,6 +80,11 @@ class BillsProvider extends ChangeNotifier {
     _metaBox = await Hive.openBox('bills_meta_$profileId');
     _profileId = profileId;
     _bills = _billsBox!.values.map((m) => Bill.fromMap(Map.from(m))).toList();
+    _meters = [
+      for (final p in BillProvider.values)
+        for (final m in (_metaBox!.get('meters_${p.name}') as List? ?? []))
+          MeterReading.fromMap(Map.from(m as Map)),
+    ];
     _usernames.clear();
     _errors.clear();
     for (final p in BillProvider.values) {
@@ -120,6 +131,8 @@ class BillsProvider extends ChangeNotifier {
       _bills.remove(b);
       await _billsBox?.delete(b.id);
     }
+    _meters.removeWhere((m) => m.provider == p);
+    await _metaBox?.delete('meters_${p.name}');
     await _metaBox?.delete('updated_${p.name}');
     notifyListeners();
   }
@@ -144,7 +157,17 @@ class BillsProvider extends ChangeNotifier {
             _errors[p] = 'Actualizare anulată: lipsește codul de verificare.';
             continue;
           }
-          await _merge(p, fetched);
+          await _merge(p, fetched.$1);
+          final meters = fetched.$2;
+          if (meters != null) {
+            _meters
+              ..removeWhere((m) => m.provider == p)
+              ..addAll(meters);
+            await _metaBox?.put(
+              'meters_${p.name}',
+              meters.map((m) => m.toMap()).toList(),
+            );
+          }
           await _metaBox?.put(
             'updated_${p.name}',
             DateTime.now().toIso8601String(),
@@ -163,17 +186,33 @@ class BillsProvider extends ChangeNotifier {
     }
   }
 
-  Future<List<Bill>> _fetchHidro((String, String) creds) async {
+  /// Indexul e secundar față de facturi: dacă preluarea lui eșuează, se
+  /// păstrează valorile vechi (întoarce `null`) și facturile se actualizează
+  /// oricum.
+  Future<List<MeterReading>?> _tryMeters(
+    Future<List<MeterReading>> Function() fetch,
+  ) async {
+    try {
+      return await fetch();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<(List<Bill>, List<MeterReading>?)> _fetchHidro(
+    (String, String) creds,
+  ) async {
     final api = HidroelectricaApi();
     try {
       await api.login(creds.$1, creds.$2);
-      return await api.fetchOpenBills();
+      final bills = await api.fetchOpenBills();
+      return (bills, await _tryMeters(api.fetchMeterReadings));
     } finally {
       api.close();
     }
   }
 
-  Future<List<Bill>?> _fetchEon(
+  Future<(List<Bill>, List<MeterReading>?)?> _fetchEon(
     (String, String) creds,
     MfaCodePrompt askMfaCode,
   ) async {
@@ -196,11 +235,14 @@ class BillsProvider extends ChangeNotifier {
         await api.completeMfa(challenge.uuid, code);
         bills = await api.fetchOpenBills(creds.$1, creds.$2);
       }
+      final meters = await _tryMeters(
+        () => api.fetchMeterReadings(creds.$1, creds.$2),
+      );
       final session = api.exportSession();
       if (session != null) {
         await _storage.write(key: _eonSessionKey, value: jsonEncode(session));
       }
-      return bills;
+      return (bills, meters);
     } finally {
       api.close();
     }
