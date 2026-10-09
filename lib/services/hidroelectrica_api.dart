@@ -15,6 +15,10 @@ class HidroelectricaApi {
   String? _userId;
   String? _sessionToken;
   List<Map>? _accounts;
+
+  /// Locurile de consum ale contului (cod → adresă), cunoscute după
+  /// [fetchOpenBills].
+  final Map<String, String> locations = {};
   final Map<String, List<Map>> _history = {};
 
   Map<String, String> _headers(String sourceType, String user, String secret) =>
@@ -144,8 +148,11 @@ class HidroelectricaApi {
   /// pentru locurile de consum prezente în [since], toate facturile emise
   /// după data respectivă (data ultimei facturi salvate în istoric), chiar
   /// dacă sunt deja achitate la furnizor. Apelează [login] înainte.
+  ///
+  /// Locurile de consum din [skip] nu sunt interogate.
   Future<List<Bill>> fetchOpenBills({
     Map<String, DateTime> since = const {},
+    Set<String> skip = const {},
   }) async {
     final bills = <Bill>[];
     final now = DateTime.now();
@@ -153,6 +160,8 @@ class HidroelectricaApi {
     for (final entry in await _fetchAccounts()) {
       final uan = (entry['UtilityAccountNumber'] ?? '').toString().trim();
       final address = (entry['Address'] ?? '').toString().trim();
+      locations[uan] = address;
+      if (skip.contains(uan)) continue;
       final billResp = await _post('/Service/Billing/GetBill', {
         'LanguageCode': 'RO',
         'UserID': _userId,

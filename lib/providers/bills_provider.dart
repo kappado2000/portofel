@@ -27,6 +27,7 @@ class BillsProvider extends ChangeNotifier {
   List<Bill> _bills = [];
   final Map<BillProvider, String> _usernames = {};
   final Map<BillProvider, String> _errors = {};
+  final Set<String> _hidden = {};
   bool _refreshing = false;
 
   bool get refreshing => _refreshing;
@@ -40,7 +41,45 @@ class BillsProvider extends ChangeNotifier {
     return v is String ? DateTime.tryParse(v) : null;
   }
 
-  Iterable<Bill> get _active => _bills.where((b) => !b.archived);
+  Iterable<Bill> get _active => _bills.where(
+    (b) =>
+        !b.archived && !_hidden.contains(_locKey(b.provider, b.contractCode)),
+  );
+
+  static String _locKey(BillProvider p, String code) => '${p.name}|$code';
+
+  /// Locurile de consum cunoscute ale unui furnizor, ca (cod, adresă).
+  List<(String, String)> locationsFor(BillProvider p) {
+    final raw = _metaBox?.get('locations_${p.name}');
+    final map = raw is Map ? raw : const {};
+    final list = [for (final e in map.entries) ('${e.key}', '${e.value}')];
+    list.sort((a, b) => a.$2.compareTo(b.$2));
+    return list;
+  }
+
+  bool isLocationVisible(BillProvider p, String code) =>
+      !_hidden.contains(_locKey(p, code));
+
+  bool get hasHiddenLocations => _hidden.isNotEmpty;
+
+  /// Stabilește exact ce locuri de consum rămân ascunse (chei din
+  /// [locationKey]). O mulțime goală le afișează pe toate.
+  Future<void> setHiddenLocations(Set<String> hidden) async {
+    _hidden
+      ..clear()
+      ..addAll(hidden);
+    await _metaBox?.put('hidden_locations', _hidden.toList());
+    notifyListeners();
+  }
+
+  Set<String> get hiddenLocations => Set.of(_hidden);
+
+  static String locationKey(BillProvider p, String code) => _locKey(p, code);
+
+  Set<String> _skipFor(BillProvider p) => {
+    for (final key in _hidden)
+      if (key.startsWith('${p.name}|')) key.substring(p.name.length + 1),
+  };
 
   /// Facturile salvate în istoric, cele mai recent achitate primele.
   List<Bill> get archivedBills {
@@ -106,6 +145,11 @@ class BillsProvider extends ChangeNotifier {
     _metaBox = await Hive.openBox('bills_meta_$profileId');
     _profileId = profileId;
     _bills = _billsBox!.values.map((m) => Bill.fromMap(Map.from(m))).toList();
+    _hidden
+      ..clear()
+      ..addAll(
+        (_metaBox!.get('hidden_locations') as List? ?? []).map((e) => '$e'),
+      );
     _usernames.clear();
     _errors.clear();
     for (final p in BillProvider.values) {
@@ -157,6 +201,9 @@ class BillsProvider extends ChangeNotifier {
       await _billsBox?.delete(b.id);
     }
     await _metaBox?.delete('updated_${p.name}');
+    await _metaBox?.delete('locations_${p.name}');
+    _hidden.removeWhere((k) => k.startsWith('${p.name}|'));
+    await _metaBox?.put('hidden_locations', _hidden.toList());
     notifyListeners();
   }
 
@@ -180,7 +227,10 @@ class BillsProvider extends ChangeNotifier {
             _errors[p] = 'Actualizare anulată: lipsește codul de verificare.';
             continue;
           }
-          await _merge(p, fetched);
+          await _merge(p, fetched.$1);
+          if (fetched.$2.isNotEmpty) {
+            await _metaBox?.put('locations_${p.name}', fetched.$2);
+          }
           await _metaBox?.put(
             'updated_${p.name}',
             DateTime.now().toIso8601String(),
@@ -199,13 +249,17 @@ class BillsProvider extends ChangeNotifier {
     }
   }
 
-  Future<List<Bill>> _fetchHidro((String, String) creds) async {
+  Future<(List<Bill>, Map<String, String>)> _fetchHidro(
+    (String, String) creds,
+  ) async {
     final api = HidroelectricaApi();
     try {
       await api.login(creds.$1, creds.$2);
-      return await api.fetchOpenBills(
+      final bills = await api.fetchOpenBills(
         since: _sinceFor(BillProvider.hidroelectrica),
+        skip: _skipFor(BillProvider.hidroelectrica),
       );
+      return (bills, api.locations);
     } finally {
       api.close();
     }
@@ -248,16 +302,21 @@ class BillsProvider extends ChangeNotifier {
     }
   }
 
-  Future<List<Bill>?> _fetchEon(
+  Future<(List<Bill>, Map<String, String>)?> _fetchEon(
     (String, String) creds,
     MfaCodePrompt askMfaCode,
   ) {
     final since = _sinceFor(BillProvider.eon);
-    return _withEon(
-      creds,
-      askMfaCode,
-      (api) => api.fetchOpenBills(creds.$1, creds.$2, since: since),
-    );
+    final skip = _skipFor(BillProvider.eon);
+    return _withEon(creds, askMfaCode, (api) async {
+      final bills = await api.fetchOpenBills(
+        creds.$1,
+        creds.$2,
+        since: since,
+        skip: skip,
+      );
+      return (bills, api.locations);
+    });
   }
 
   /// Descarcă PDF-ul unei facturi de la furnizor. Aruncă
@@ -347,6 +406,7 @@ class BillsProvider extends ChangeNotifier {
           b.provider == p &&
           !b.archived &&
           b.openAtProvider &&
+          !_hidden.contains(_locKey(b.provider, b.contractCode)) &&
           !fetchedIds.contains(b.id),
     )) {
       b.openAtProvider = false;

@@ -33,6 +33,9 @@ class EonApi {
   DateTime? _expiresAt;
   List<Map>? _contracts;
 
+  /// Contractele contului (cod → adresă), cunoscute după [fetchOpenBills].
+  final Map<String, String> locations = {};
+
   bool get hasSession => _accessToken != null;
 
   Map<String, dynamic>? exportSession() => _accessToken == null
@@ -235,11 +238,12 @@ class EonApi {
   /// Întoarce facturile neachitate de pe toate contractele contului și,
   /// pentru contractele prezente în [since], toate facturile emise după data
   /// respectivă (data ultimei facturi salvate în istoric), chiar dacă sunt
-  /// deja achitate la furnizor.
+  /// deja achitate la furnizor. Contractele din [skip] nu sunt interogate.
   Future<List<Bill>> fetchOpenBills(
     String username,
     String password, {
     Map<String, DateTime> since = const {},
+    Set<String> skip = const {},
   }) async {
     await ensureSession(username, password);
 
@@ -292,6 +296,8 @@ class EonApi {
       final code = '${contract['accountContract'] ?? ''}'.trim();
       if (code.isEmpty) continue;
       final address = _address(contract['consumptionPointAddress']);
+      locations[code] = address;
+      if (skip.contains(code)) continue;
 
       final invResp = await _authedGet(
         '$_base/invoices/v1/invoices/list?accountContract=$code&status=unpaid',

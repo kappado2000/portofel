@@ -168,6 +168,98 @@ class _BillsScreenState extends State<BillsScreen> {
     MaterialPageRoute(builder: (_) => const BillsHistoryScreen()),
   );
 
+  Future<void> _chooseAddresses() async {
+    final provider = context.read<BillsProvider>();
+    final all = [
+      for (final p in BillProvider.values)
+        for (final loc in provider.locationsFor(p)) (p, loc.$1, loc.$2),
+    ];
+    final hidden = provider.hiddenLocations;
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) {
+          final shown = all
+              .where(
+                (l) => !hidden.contains(BillsProvider.locationKey(l.$1, l.$2)),
+              )
+              .length;
+          return AlertDialog(
+            title: const Text('Adrese afișate'),
+            contentPadding: const EdgeInsets.fromLTRB(0, 16, 0, 0),
+            content: SizedBox(
+              width: 420,
+              child: all.isEmpty
+                  ? const Padding(
+                      padding: EdgeInsets.fromLTRB(24, 0, 24, 8),
+                      child: Text(
+                        'Nu se cunosc încă adresele. Conectează un cont și '
+                        'actualizează facturile, apoi revino aici.',
+                      ),
+                    )
+                  : ListView(
+                      shrinkWrap: true,
+                      children: [
+                        CheckboxListTile(
+                          tristate: true,
+                          controlAffinity: ListTileControlAffinity.leading,
+                          title: const Text('Toate adresele'),
+                          value: shown == all.length
+                              ? true
+                              : (shown == 0 ? false : null),
+                          onChanged: (_) => setLocal(() {
+                            if (shown == all.length) {
+                              hidden.addAll(
+                                all.map(
+                                  (l) => BillsProvider.locationKey(l.$1, l.$2),
+                                ),
+                              );
+                            } else {
+                              hidden.clear();
+                            }
+                          }),
+                        ),
+                        const Divider(height: 1),
+                        for (final l in all)
+                          CheckboxListTile(
+                            controlAffinity: ListTileControlAffinity.leading,
+                            title: Text(l.$3.isEmpty ? 'Cod ${l.$2}' : l.$3),
+                            subtitle: Text(
+                              '${billProviderLabel(l.$1)} · cod ${l.$2}',
+                            ),
+                            value: !hidden.contains(
+                              BillsProvider.locationKey(l.$1, l.$2),
+                            ),
+                            onChanged: (v) => setLocal(() {
+                              final key = BillsProvider.locationKey(l.$1, l.$2);
+                              v == true ? hidden.remove(key) : hidden.add(key);
+                            }),
+                          ),
+                      ],
+                    ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Renunță'),
+              ),
+              if (all.isNotEmpty)
+                FilledButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  child: const Text('Aplică'),
+                ),
+            ],
+          );
+        },
+      ),
+    );
+    if (ok != true || !mounted) return;
+    await provider.setHiddenLocations(hidden);
+    // Adresele reafișate nu au fost interogate cât au stat ascunse.
+    if (mounted) await _refresh();
+  }
+
   Future<void> _removePaid() async {
     final provider = context.read<BillsProvider>();
     final ok = await showDialog<bool>(
@@ -228,6 +320,8 @@ class _BillsScreenState extends State<BillsScreen> {
                   _editAccount(BillProvider.hidroelectrica);
                 case 'eon':
                   _editAccount(BillProvider.eon);
+                case 'addresses':
+                  _chooseAddresses();
                 case 'clear':
                   _removePaid();
               }
@@ -238,6 +332,10 @@ class _BillsScreenState extends State<BillsScreen> {
                 child: Text('Cont Hidroelectrica'),
               ),
               const PopupMenuItem(value: 'eon', child: Text('Cont E.ON')),
+              const PopupMenuItem(
+                value: 'addresses',
+                child: Text('Adrese afișate'),
+              ),
               PopupMenuItem(
                 value: 'clear',
                 enabled: provider.paidCount > 0,
