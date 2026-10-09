@@ -503,7 +503,7 @@ class _TotalsCard extends StatelessWidget {
       decoration: heroCardDecoration(),
       child: Row(
         children: [
-          cell('Neachitate', unpaid),
+          cell('Nebifate', unpaid),
           const SizedBox(width: 20),
           cell('Total bifate', paid),
           const SizedBox(width: 12),
