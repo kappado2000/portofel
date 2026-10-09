@@ -164,7 +164,13 @@ class _HistoryTile extends StatelessWidget {
         '${billProviderLabel(bill.provider)} · ${_lei(bill.balance)}',
         style: const TextStyle(fontWeight: FontWeight.w600),
       ),
-      subtitle: Text(details.isEmpty ? place : '$details\n$place'),
+      subtitle: Text(
+        [
+          if (details.isNotEmpty) details,
+          place,
+          ?billIndexLine(bill),
+        ].join('\n'),
+      ),
       isThreeLine: details.isNotEmpty,
       trailing: PopupMenuButton<String>(
         onSelected: (v) => v == 'restore' ? onRestore() : onDelete(),

@@ -1,6 +1,7 @@
 import 'package:intl/intl.dart';
 
 import '../models/account.dart';
+import '../models/bill.dart';
 
 final _ronFormat = NumberFormat.currency(
   locale: 'ro_RO',
@@ -29,3 +30,20 @@ String formatNumber(double amount) => _numberFormat.format(amount);
 
 String currencyLabel(AccountCurrency c) =>
     c == AccountCurrency.ron ? 'RON' : 'EUR';
+
+/// Textul cu intervalul de index facturat, sau `null` dacă nu e cunoscut.
+String? billIndexLine(Bill bill) {
+  final to = bill.indexTo;
+  final from = bill.indexFrom;
+  if (to == null && from == null) return null;
+  String n(double v) =>
+      v == v.roundToDouble() ? indexFormat.format(v) : formatNumber(v);
+  final range = from != null && to != null
+      ? 'Index ${n(from)} → ${n(to)}'
+      : 'Index ${n((to ?? from)!)}';
+  final extra = [
+    if (bill.readingType.isNotEmpty) bill.readingType.toLowerCase(),
+    if (bill.indexPeriod.isNotEmpty) bill.indexPeriod,
+  ].join(', ');
+  return extra.isEmpty ? range : '$range ($extra)';
+}

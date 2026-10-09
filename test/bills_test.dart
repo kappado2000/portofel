@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:portofel/models/bill.dart';
 import 'package:portofel/models/meter_reading.dart';
 import 'package:portofel/services/bill_http.dart';
+import 'package:portofel/utils/formatters.dart';
 
 void main() {
   test('Bill round-trips through map serialization', () {
@@ -20,6 +21,10 @@ void main() {
       fetchedAt: DateTime(2026, 9, 19),
       openAtProvider: false,
       archived: true,
+      indexFrom: 1200,
+      indexTo: 1350,
+      readingType: 'Autocitire',
+      indexPeriod: '01.08.2026 – 31.08.2026',
     );
     final restored = Bill.fromMap(bill.toMap());
     expect(restored.id, 'eon|100200|F123');
@@ -32,6 +37,13 @@ void main() {
     expect(restored.paidAt, bill.paidAt);
     expect(restored.openAtProvider, isFalse);
     expect(restored.archived, isTrue);
+    expect(restored.indexFrom, 1200);
+    expect(restored.indexTo, 1350);
+    expect(restored.readingType, 'Autocitire');
+    expect(
+      billIndexLine(restored),
+      'Index 1.200 → 1.350 (autocitire, 01.08.2026 – 31.08.2026)',
+    );
     expect(Bill.fromMap(bill.toMap()..remove('archived')).archived, isFalse);
   });
 

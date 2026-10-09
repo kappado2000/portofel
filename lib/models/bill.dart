@@ -7,6 +7,8 @@ String billProviderLabel(BillProvider p) =>
 /// reflectă ce a raportat furnizorul la ultima actualizare; [paid] e bifa
 /// pusă manual de utilizator și nu e niciodată modificată de actualizare.
 /// O factură cu [archived] a fost salvată în istoricul facturilor achitate.
+/// [indexFrom]–[indexTo] e intervalul de index facturat, cu [readingType]
+/// (citit / estimat), atunci când furnizorul îl pune la dispoziție.
 class Bill {
   final String id;
   final BillProvider provider;
@@ -22,6 +24,10 @@ class Bill {
   DateTime fetchedAt;
   bool openAtProvider;
   bool archived;
+  double? indexFrom;
+  double? indexTo;
+  String readingType;
+  String indexPeriod;
 
   Bill({
     required this.id,
@@ -38,6 +44,10 @@ class Bill {
     required this.fetchedAt,
     this.openAtProvider = true,
     this.archived = false,
+    this.indexFrom,
+    this.indexTo,
+    this.readingType = '',
+    this.indexPeriod = '',
   });
 
   static String buildId(
@@ -68,6 +78,10 @@ class Bill {
     'fetchedAt': fetchedAt.toIso8601String(),
     'openAtProvider': openAtProvider,
     'archived': archived,
+    'indexFrom': indexFrom,
+    'indexTo': indexTo,
+    'readingType': readingType,
+    'indexPeriod': indexPeriod,
   };
 
   factory Bill.fromMap(Map map) => Bill(
@@ -88,6 +102,10 @@ class Bill {
     fetchedAt: _date(map['fetchedAt']) ?? DateTime.now(),
     openAtProvider: map['openAtProvider'] as bool? ?? true,
     archived: map['archived'] as bool? ?? false,
+    indexFrom: (map['indexFrom'] as num?)?.toDouble(),
+    indexTo: (map['indexTo'] as num?)?.toDouble(),
+    readingType: map['readingType'] as String? ?? '',
+    indexPeriod: map['indexPeriod'] as String? ?? '',
   );
 
   static DateTime? _date(dynamic v) =>

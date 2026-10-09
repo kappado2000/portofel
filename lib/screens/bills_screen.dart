@@ -77,7 +77,10 @@ class _BillsScreenState extends State<BillsScreen> {
   Future<void> _editAccount(BillProvider p) async {
     final provider = context.read<BillsProvider>();
     final userCtrl = TextEditingController(text: provider.usernameFor(p) ?? '');
-    final passCtrl = TextEditingController();
+    final passCtrl = TextEditingController(
+      text: await provider.passwordFor(p) ?? '',
+    );
+    if (!mounted) return;
     final connected = provider.isConnected(p);
     var obscure = true;
 
@@ -119,8 +122,9 @@ class _BillsScreenState extends State<BillsScreen> {
               ),
               const SizedBox(height: 12),
               Text(
-                'Datele rămân doar pe acest dispozitiv, în stocarea '
-                'securizată a sistemului, și sunt trimise numai '
+                'Datele se salvează automat și rămân până la '
+                'deconectare, doar pe acest dispozitiv, în stocarea '
+                'securizată a sistemului. Sunt trimise numai '
                 'furnizorului.',
                 style: Theme.of(ctx).textTheme.bodySmall,
               ),
@@ -522,6 +526,7 @@ class _BillTile extends StatelessWidget {
         children: [
           Text(place),
           if (details.isNotEmpty) Text(details),
+          if (billIndexLine(bill) case final line?) Text(line),
           if (status != null)
             Text(
               status,

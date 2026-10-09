@@ -15,6 +15,7 @@ class HidroelectricaApi {
   String? _userId;
   String? _sessionToken;
   List<Map>? _accounts;
+  final Map<String, List<Map>> _history = {};
 
   Map<String, String> _headers(String sourceType, String user, String secret) =>
       {
@@ -140,8 +141,13 @@ class HidroelectricaApi {
 
       final invoiceNumber = (result['invoicenumber'] ?? '').toString().trim();
       final amount = parseAmount(result['billamount']);
+      final interval = await _lastInterval(entry);
       bills.add(
         Bill(
+          indexFrom: interval?.$1,
+          indexTo: interval?.$2,
+          readingType: interval?.$3 ?? '',
+          indexPeriod: interval?.$4 ?? '',
           id: Bill.buildId(BillProvider.hidroelectrica, uan, invoiceNumber),
           provider: BillProvider.hidroelectrica,
           contractCode: uan,
@@ -157,6 +163,81 @@ class HidroelectricaApi {
     return bills;
   }
 
+  /// Istoricul citirilor unui loc de consum (o singură cerere per sesiune).
+  Future<List<Map>> _readHistory(Map entry) async {
+    final uan = (entry['UtilityAccountNumber'] ?? '').toString().trim();
+    final cached = _history[uan];
+    if (cached != null) return cached;
+
+    final podsResp = await _post('/Service/SelfMeterReading/GetPods', {
+      'MeterType': 'E',
+      'UserID': _userId,
+      'UtilityAccountNumber': uan,
+      'AccountNumber': (entry['AccountNumber'] ?? '').toString(),
+    });
+    final pods = _dataList(podsResp, 'objPodData');
+    if (pods.isEmpty) return _history[uan] = const [];
+    final installation = '${pods.first['installation'] ?? ''}'.trim();
+    final pod = '${pods.first['pod'] ?? pods.first['podValue'] ?? ''}'.trim();
+    if (installation.isEmpty || pod.isEmpty) return _history[uan] = const [];
+
+    final historyResp = await _post(
+      '/Service/IndexHistory/GetMeterReadHistory',
+      {
+        'utilityAccountNumber': uan,
+        'podValue': pod,
+        'LanguageCode': 'RO',
+        'InstallationNumber': installation,
+        'SerialNumber': const <String>[],
+      },
+    );
+    return _history[uan] = _dataList(historyResp, 'objMeterReadHistoryData')
+        .where((r) => parseBillDate(r['Date']) != null && r['Index'] != null)
+        .toList();
+  }
+
+  /// Ultimele două citiri ale registrului de consum: (index vechi, index
+  /// nou, tipul ultimei citiri, perioada). Hidroelectrica nu leagă citirile
+  /// de o factură anume, deci acesta e intervalul cel mai recent, nu neapărat
+  /// exact cel de pe factură. Întoarce `null` dacă nu poate fi determinat.
+  Future<(double?, double, String, String)?> _lastInterval(Map entry) async {
+    try {
+      final rows = (await _readHistory(entry))
+          .where((r) => !'${r['Registers'] ?? ''}'.endsWith('_P'))
+          .toList();
+      if (rows.isEmpty) return null;
+      rows.sort(
+        (a, b) =>
+            parseBillDate(b['Date'])!.compareTo(parseBillDate(a['Date'])!),
+      );
+      final last = rows.first;
+      final previous = rows
+          .skip(1)
+          .where(
+            (r) =>
+                r['Registers'] == last['Registers'] &&
+                r['CounterSeries'] == last['CounterSeries'] &&
+                parseBillDate(r['Date'])!
+                    .isBefore(parseBillDate(last['Date'])!),
+          )
+          .firstOrNull;
+      String day(Map r) {
+        final d = parseBillDate(r['Date'])!;
+        String two(int v) => v.toString().padLeft(2, '0');
+        return '${two(d.day)}.${two(d.month)}.${d.year}';
+      }
+
+      return (
+        previous == null ? null : parseAmount(previous['Index']),
+        parseAmount(last['Index']),
+        '${last['ReadingType'] ?? ''}'.trim(),
+        previous == null ? day(last) : '${day(previous)} – ${day(last)}',
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Întoarce ultimul index înregistrat pentru fiecare registru de contor
   /// (consum și, la prosumatori, producție). Apelează [login] înainte.
   Future<List<MeterReading>> fetchMeterReadings() async {
@@ -164,33 +245,10 @@ class HidroelectricaApi {
 
     for (final entry in await _fetchAccounts()) {
       final uan = (entry['UtilityAccountNumber'] ?? '').toString().trim();
-      final podsResp = await _post('/Service/SelfMeterReading/GetPods', {
-        'MeterType': 'E',
-        'UserID': _userId,
-        'UtilityAccountNumber': uan,
-        'AccountNumber': (entry['AccountNumber'] ?? '').toString(),
-      });
-      final pods = _dataList(podsResp, 'objPodData');
-      if (pods.isEmpty) continue;
-      final installation = '${pods.first['installation'] ?? ''}'.trim();
-      final pod = '${pods.first['pod'] ?? pods.first['podValue'] ?? ''}'.trim();
-      if (installation.isEmpty || pod.isEmpty) continue;
-
-      final historyResp = await _post(
-        '/Service/IndexHistory/GetMeterReadHistory',
-        {
-          'utilityAccountNumber': uan,
-          'podValue': pod,
-          'LanguageCode': 'RO',
-          'InstallationNumber': installation,
-          'SerialNumber': const <String>[],
-        },
-      );
       // Cea mai recentă citire pentru fiecare registru.
       final latest = <String, (DateTime, Map)>{};
-      for (final row in _dataList(historyResp, 'objMeterReadHistoryData')) {
-        final date = parseBillDate(row['Date']);
-        if (date == null || row['Index'] == null) continue;
+      for (final row in await _readHistory(entry)) {
+        final date = parseBillDate(row['Date'])!;
         final register = '${row['Registers'] ?? ''}';
         final current = latest[register];
         if (current == null || date.isAfter(current.$1)) {

@@ -116,6 +116,10 @@ class BillsProvider extends ChangeNotifier {
     }
   }
 
+  /// Parola salvată pentru un furnizor, pentru precompletarea formularului.
+  Future<String?> passwordFor(BillProvider p) async =>
+      (await _readCreds(p))?.$2;
+
   Future<void> saveAccount(
     BillProvider p,
     String username,
@@ -274,6 +278,14 @@ class BillsProvider extends ChangeNotifier {
           ..address = f.address
           ..issueDate = f.issueDate ?? existing.issueDate
           ..dueDate = f.dueDate ?? existing.dueDate
+          ..indexFrom = f.indexFrom ?? existing.indexFrom
+          ..indexTo = f.indexTo ?? existing.indexTo
+          ..readingType = f.readingType.isEmpty
+              ? existing.readingType
+              : f.readingType
+          ..indexPeriod = f.indexPeriod.isEmpty
+              ? existing.indexPeriod
+              : f.indexPeriod
           ..fetchedAt = f.fetchedAt
           ..openAtProvider = true;
         await _billsBox?.put(existing.id, existing.toMap());

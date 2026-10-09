@@ -174,6 +174,46 @@ class EonApi {
     return resp;
   }
 
+  /// Intervalul de index de pe o factură: (index vechi, index nou, tipul
+  /// citirii, perioada de consum). Întoarce `null` dacă E.ON nu îl oferă.
+  Future<(double?, double?, String, String)?> _invoiceInterval(
+    String invoiceNumber,
+    String username,
+    String password,
+  ) async {
+    try {
+      final resp = await _authedGet(
+        '$_base/invoices/v1/invoices/invoice-meter-details/$invoiceNumber',
+        username,
+        password,
+      );
+      final details = resp.map['meterDetails'];
+      if (resp.status != 200 || details is! List) return null;
+      for (final item in details.whereType<Map>()) {
+        final from = item['oldIndex'];
+        final to = item['newIndex'];
+        if ('${from ?? ''}'.isEmpty && '${to ?? ''}'.isEmpty) continue;
+        String text(List<String> keys) => keys
+            .map((k) => '${item[k] ?? ''}'.trim())
+            .firstWhere((v) => v.isNotEmpty, orElse: () => '');
+        return (
+          '${from ?? ''}'.isEmpty ? null : parseAmount(from),
+          '${to ?? ''}'.isEmpty ? null : parseAmount(to),
+          text(const [
+            'readingType',
+            'newIndexType',
+            'indexType',
+            'readingTypeDescription',
+          ]),
+          text(const ['consumptionPeriod']),
+        );
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Contractele contului (o singură cerere per sesiune).
   Future<List<Map>> _fetchContracts(String username, String password) async {
     final cached = _contracts;
@@ -275,8 +315,15 @@ class EonApi {
           number.isEmpty ? '${item['maturityDate'] ?? ''}' : number,
         );
         if (!seen.add(id)) continue;
+        final interval = number.isEmpty
+            ? null
+            : await _invoiceInterval(number, username, password);
         bills.add(
           Bill(
+            indexFrom: interval?.$1,
+            indexTo: interval?.$2,
+            readingType: interval?.$3 ?? '',
+            indexPeriod: interval?.$4 ?? '',
             id: id,
             provider: BillProvider.eon,
             contractCode: code,
