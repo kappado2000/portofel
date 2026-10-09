@@ -120,6 +120,11 @@ class HidroelectricaApi {
   /// Facturile emise pentru un loc de consum, din istoricul de facturare.
   /// Întoarce o listă goală dacă istoricul nu poate fi citit.
   Future<List<Map>> _billingHistory(Map entry) async {
+    // Fără interval de date, serverul întoarce un istoric gol.
+    final now = DateTime.now();
+    String day(DateTime d) =>
+        '${d.year}-${d.month.toString().padLeft(2, '0')}-'
+        '${d.day.toString().padLeft(2, '0')}';
     try {
       final resp = await _post('/Service/Billing/GetBillingHistoryList', {
         'LanguageCode': 'RO',
@@ -128,8 +133,8 @@ class HidroelectricaApi {
             .toString()
             .trim(),
         'AccountNumber': (entry['AccountNumber'] ?? '').toString(),
-        'FromDate': '',
-        'ToDate': '',
+        'FromDate': day(now.subtract(const Duration(days: 730))),
+        'ToDate': day(now),
       });
       final result = resp.map['result'];
       if (resp.status != 200 || result is! Map) return const [];
