@@ -791,12 +791,23 @@ class _BillTile extends StatelessWidget {
             onTap: () => openBillPdf(context, bill),
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 4),
-              child: Text(
-                'Deschide',
-                style: TextStyle(
-                  color: scheme.primary,
-                  fontWeight: FontWeight.w600,
-                ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.picture_as_pdf_outlined,
+                    size: 18,
+                    color: scheme.primary,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Deschide',
+                    style: TextStyle(
+                      color: scheme.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
