@@ -69,16 +69,23 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.person_outline),
-            SizedBox(width: 8),
-            Text('Portofel'),
-          ],
+        // Titlul se micșorează dacă nu are loc, în loc să intre sub butoane.
+        titleSpacing: 8,
+        title: const FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.person_outline),
+              SizedBox(width: 8),
+              Text('Portofel'),
+            ],
+          ),
         ),
         actions: [
           IconButton(
+            visualDensity: VisualDensity.compact,
             icon: const Icon(Icons.history),
             tooltip: 'Istoric tranzacții',
             onPressed: () => Navigator.push(
@@ -87,6 +94,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           IconButton(
+            visualDensity: VisualDensity.compact,
             icon: const Icon(Icons.receipt_long_outlined),
             tooltip: 'Facturi',
             onPressed: () => Navigator.push(
@@ -95,6 +103,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           IconButton(
+            visualDensity: VisualDensity.compact,
             icon: const Icon(Icons.family_restroom),
             tooltip: 'Conturi Familie',
             onPressed: () => Navigator.push(
@@ -103,6 +112,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           IconButton(
+            visualDensity: VisualDensity.compact,
             icon: const Icon(Icons.account_balance_wallet_outlined),
             tooltip: 'Conturi',
             onPressed: () => Navigator.push(
@@ -111,6 +121,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           IconButton(
+            visualDensity: VisualDensity.compact,
             icon: const Icon(Icons.swap_horiz),
             tooltip: 'Transfer / Schimb valutar',
             onPressed: () => Navigator.push(
@@ -121,6 +132,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           IconButton(
+            visualDensity: VisualDensity.compact,
             icon: const Icon(Icons.settings_outlined),
             tooltip: 'Setări',
             onPressed: () => Navigator.push(
