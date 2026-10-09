@@ -19,6 +19,7 @@ void main() {
       paidAt: DateTime(2026, 9, 20, 10, 30),
       fetchedAt: DateTime(2026, 9, 19),
       openAtProvider: false,
+      archived: true,
     );
     final restored = Bill.fromMap(bill.toMap());
     expect(restored.id, 'eon|100200|F123');
@@ -30,6 +31,8 @@ void main() {
     expect(restored.paid, isTrue);
     expect(restored.paidAt, bill.paidAt);
     expect(restored.openAtProvider, isFalse);
+    expect(restored.archived, isTrue);
+    expect(Bill.fromMap(bill.toMap()..remove('archived')).archived, isFalse);
   });
 
   test('MeterReading round-trips through map serialization', () {

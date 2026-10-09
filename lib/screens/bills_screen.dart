@@ -8,6 +8,7 @@ import '../providers/bills_provider.dart';
 import '../services/eon_api.dart';
 import '../utils/card_styles.dart';
 import '../utils/formatters.dart';
+import 'bills_history_screen.dart';
 
 String _lei(double v) => formatAmount(v, AccountCurrency.ron);
 
@@ -159,6 +160,46 @@ class _BillsScreenState extends State<BillsScreen> {
     if (mounted) await _refresh();
   }
 
+  Future<void> _saveToHistory() async {
+    final provider = context.read<BillsProvider>();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Salvează în istoric'),
+        content: Text(
+          '${provider.paidCount} facturi bifate, în total '
+          '${_lei(provider.paidTotal())}, vor fi mutate în istoricul '
+          'facturilor achitate, cu data achitării '
+          '${dateFormat.format(DateTime.now())}.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Renunță'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Salvează'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    await provider.archivePaid();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('Facturile au fost salvate în istoric.'),
+        action: SnackBarAction(label: 'Vezi', onPressed: _openHistory),
+      ),
+    );
+  }
+
+  void _openHistory() => Navigator.push(
+    context,
+    MaterialPageRoute(builder: (_) => const BillsHistoryScreen()),
+  );
+
   Future<void> _removePaid() async {
     final provider = context.read<BillsProvider>();
     final ok = await showDialog<bool>(
@@ -207,6 +248,11 @@ class _BillsScreenState extends State<BillsScreen> {
               tooltip: 'Actualizează',
               onPressed: provider.hasAnyAccount ? _refresh : null,
             ),
+          IconButton(
+            icon: const Icon(Icons.history),
+            tooltip: 'Istoric facturi achitate',
+            onPressed: _openHistory,
+          ),
           PopupMenuButton<String>(
             onSelected: (v) {
               switch (v) {
@@ -241,6 +287,16 @@ class _BillsScreenState extends State<BillsScreen> {
             _TotalsCard(
               unpaid: provider.unpaidTotal(),
               paid: provider.paidTotal(),
+            ),
+            const SizedBox(height: 12),
+            FilledButton.icon(
+              onPressed: provider.paidCount > 0 ? _saveToHistory : null,
+              icon: const Icon(Icons.archive_outlined),
+              label: Text(
+                provider.paidCount > 0
+                    ? 'Salvează în istoric (${provider.paidCount})'
+                    : 'Salvează în istoric',
+              ),
             ),
             const SizedBox(height: 16),
             for (final p in BillProvider.values)

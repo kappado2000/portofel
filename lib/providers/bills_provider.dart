@@ -45,9 +45,20 @@ class BillsProvider extends ChangeNotifier {
   List<MeterReading> metersFor(BillProvider p) =>
       _meters.where((m) => m.provider == p).toList();
 
+  Iterable<Bill> get _active => _bills.where((b) => !b.archived);
+
+  /// Facturile salvate în istoric, cele mai recent achitate primele.
+  List<Bill> get archivedBills {
+    final list = _bills.where((b) => b.archived).toList();
+    list.sort(
+      (a, b) => (b.paidAt ?? b.fetchedAt).compareTo(a.paidAt ?? a.fetchedAt),
+    );
+    return list;
+  }
+
   /// Facturile unui furnizor: întâi cele nebifate, apoi după scadență.
   List<Bill> billsFor(BillProvider p) {
-    final list = _bills.where((b) => b.provider == p).toList();
+    final list = _active.where((b) => b.provider == p).toList();
     list.sort((a, b) {
       if (a.paid != b.paid) return a.paid ? 1 : -1;
       final ad = a.dueDate ?? DateTime(9999);
@@ -61,13 +72,13 @@ class BillsProvider extends ChangeNotifier {
 
   /// Totalul facturilor nebifate (opțional, doar ale unui furnizor).
   double unpaidTotal([BillProvider? p]) =>
-      _sum(_bills.where((b) => !b.paid && (p == null || b.provider == p)));
+      _sum(_active.where((b) => !b.paid && (p == null || b.provider == p)));
 
   /// Totalul facturilor bifate (opțional, doar ale unui furnizor).
   double paidTotal([BillProvider? p]) =>
-      _sum(_bills.where((b) => b.paid && (p == null || b.provider == p)));
+      _sum(_active.where((b) => b.paid && (p == null || b.provider == p)));
 
-  int get paidCount => _bills.where((b) => b.paid).length;
+  int get paidCount => _active.where((b) => b.paid).length;
 
   String _credKey(BillProvider p) => 'bills_${_profileId}_${p.name}';
   String get _eonSessionKey => 'bills_${_profileId}_eon_session';
@@ -256,7 +267,7 @@ class BillsProvider extends ChangeNotifier {
       if (existing == null) {
         _bills.add(f);
         await _billsBox?.put(f.id, f.toMap());
-      } else {
+      } else if (!existing.archived) {
         existing
           ..amount = f.amount
           ..balance = f.balance
@@ -295,7 +306,7 @@ class BillsProvider extends ChangeNotifier {
   /// Bifează sau debifează toate facturile unui furnizor.
   Future<void> setSectionPaid(BillProvider p, bool paid) async {
     final now = DateTime.now();
-    for (final b in _bills.where((b) => b.provider == p && b.paid != paid)) {
+    for (final b in _active.where((b) => b.provider == p && b.paid != paid)) {
       b
         ..paid = paid
         ..paidAt = paid ? now : null;
@@ -304,13 +315,39 @@ class BillsProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Șterge din listă toate facturile bifate.
+  /// Șterge din listă toate facturile bifate (fără a le salva în istoric).
   Future<void> removePaid() async {
-    final gone = _bills.where((b) => b.paid).toList();
+    final gone = _active.where((b) => b.paid).toList();
     for (final b in gone) {
       _bills.remove(b);
       await _billsBox?.delete(b.id);
     }
+    notifyListeners();
+  }
+
+  /// Mută facturile bifate în istoric. Data achitării este data salvării
+  /// în istoric, nu cea la care a fost pusă bifa.
+  Future<void> archivePaid() async {
+    final now = DateTime.now();
+    for (final b in _active.where((b) => b.paid).toList()) {
+      b
+        ..archived = true
+        ..paidAt = now;
+      await _billsBox?.put(b.id, b.toMap());
+    }
+    notifyListeners();
+  }
+
+  /// Readuce o factură din istoric în lista de facturi, tot bifată.
+  Future<void> restoreFromHistory(Bill bill) async {
+    bill.archived = false;
+    await _billsBox?.put(bill.id, bill.toMap());
+    notifyListeners();
+  }
+
+  Future<void> deleteFromHistory(Bill bill) async {
+    _bills.remove(bill);
+    await _billsBox?.delete(bill.id);
     notifyListeners();
   }
 }

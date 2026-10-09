@@ -6,6 +6,7 @@ String billProviderLabel(BillProvider p) =>
 /// O factură preluată de la un furnizor. [balance] și [openAtProvider]
 /// reflectă ce a raportat furnizorul la ultima actualizare; [paid] e bifa
 /// pusă manual de utilizator și nu e niciodată modificată de actualizare.
+/// O factură cu [archived] a fost salvată în istoricul facturilor achitate.
 class Bill {
   final String id;
   final BillProvider provider;
@@ -20,6 +21,7 @@ class Bill {
   DateTime? paidAt;
   DateTime fetchedAt;
   bool openAtProvider;
+  bool archived;
 
   Bill({
     required this.id,
@@ -35,6 +37,7 @@ class Bill {
     this.paidAt,
     required this.fetchedAt,
     this.openAtProvider = true,
+    this.archived = false,
   });
 
   static String buildId(
@@ -64,6 +67,7 @@ class Bill {
     'paidAt': paidAt?.toIso8601String(),
     'fetchedAt': fetchedAt.toIso8601String(),
     'openAtProvider': openAtProvider,
+    'archived': archived,
   };
 
   factory Bill.fromMap(Map map) => Bill(
@@ -83,6 +87,7 @@ class Bill {
     paidAt: _date(map['paidAt']),
     fetchedAt: _date(map['fetchedAt']) ?? DateTime.now(),
     openAtProvider: map['openAtProvider'] as bool? ?? true,
+    archived: map['archived'] as bool? ?? false,
   );
 
   static DateTime? _date(dynamic v) =>
