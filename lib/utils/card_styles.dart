@@ -45,13 +45,15 @@ BoxDecoration heroCardDecoration({double radius = 20}) => BoxDecoration(
   ],
 );
 
-/// Paleta unui furnizor de utilități — albastru pentru Hidroelectrica,
-/// portocaliu pentru E.ON — derivată pentru tema curentă, ca secțiunile lor
-/// să se deosebească dintr-o privire. Roșul rămâne rezervat restanțelor.
+/// Paleta unui furnizor de utilități, derivată pentru tema curentă, ca
+/// secțiunile lor să se deosebească dintr-o privire. Roșul rămâne rezervat
+/// restanțelor.
 ColorScheme billProviderScheme(BuildContext context, BillProvider provider) =>
     ColorScheme.fromSeed(
-      seedColor: provider == BillProvider.hidroelectrica
-          ? const Color(0xFF1565C0)
-          : const Color(0xFFEF6C00),
+      seedColor: switch (provider) {
+        BillProvider.hidroelectrica => const Color(0xFF1565C0),
+        BillProvider.eon => const Color(0xFFEF6C00),
+        BillProvider.electrica => const Color(0xFF2E7D32),
+      },
       brightness: Theme.of(context).brightness,
     );

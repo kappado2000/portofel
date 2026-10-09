@@ -67,9 +67,11 @@ class _BillsScreenState extends State<BillsScreen> {
                 autocorrect: false,
                 keyboardType: TextInputType.emailAddress,
                 decoration: InputDecoration(
-                  labelText: p == BillProvider.eon
-                      ? 'Email Myline'
-                      : 'Utilizator iHidro',
+                  labelText: switch (p) {
+                    BillProvider.hidroelectrica => 'Utilizator iHidro',
+                    BillProvider.eon => 'Email Myline',
+                    BillProvider.electrica => 'Email MyElectrica',
+                  },
                   border: const OutlineInputBorder(),
                 ),
               ),
@@ -447,10 +449,11 @@ class _BillsScreenState extends State<BillsScreen> {
             ],
             const SizedBox(height: 16),
             for (final p in BillProvider.values)
-              _ProviderSection(
-                billProvider: p,
-                onConnect: () => _editAccount(p),
-              ),
+              if (!provider.hasAnyAccount || provider.isConnected(p))
+                _ProviderSection(
+                  billProvider: p,
+                  onConnect: () => _editAccount(p),
+                ),
           ],
         ),
       ),
@@ -486,7 +489,7 @@ class _TotalsCard extends StatelessWidget {
               _lei(value),
               style: const TextStyle(
                 color: Colors.white,
-                fontSize: 22,
+                fontSize: 26,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -665,8 +668,9 @@ class _ProviderSection extends StatelessWidget {
                     children: [
                       Text(
                         _lei(provider.unpaidTotal(billProvider)),
-                        style: textTheme.titleMedium?.copyWith(
+                        style: textTheme.titleLarge?.copyWith(
                           color: tint.onPrimaryContainer,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
                       Text(
@@ -762,7 +766,7 @@ class _BillTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final status = billProviderStatus(bill);
+    final textTheme = Theme.of(context).textTheme;
 
     return CheckboxListTile(
       value: bill.paid,
@@ -773,49 +777,30 @@ class _BillTile extends StatelessWidget {
       onChanged: (v) => context.read<BillsProvider>().setPaid(bill, v ?? false),
       title: Text(
         _lei(bill.amount),
-        style: TextStyle(
-          fontWeight: FontWeight.w600,
+        style: textTheme.titleLarge?.copyWith(
+          fontWeight: FontWeight.bold,
           decoration: bill.paid ? TextDecoration.lineThrough : null,
-          color: bill.paid ? scheme.onSurfaceVariant : null,
+          color: bill.paid ? scheme.onSurfaceVariant : scheme.onSurface,
         ),
       ),
       subtitle: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(billDatesLine(bill)),
-          if (bill.invoiceNumber.isNotEmpty) Text('Nr. ${bill.invoiceNumber}'),
           InkWell(
             onTap: () => openBillPdf(context, bill),
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 6),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.picture_as_pdf_outlined,
-                    size: 18,
-                    color: scheme.primary,
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    'Deschide factura',
-                    style: TextStyle(color: scheme.primary),
-                  ),
-                ],
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Text(
+                'Deschide',
+                style: TextStyle(
+                  color: scheme.primary,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ),
-          Text(
-            status,
-            style: TextStyle(
-              color: bill.isOverdue
-                  ? scheme.error
-                  : bill.openAtProvider
-                  ? scheme.onSurfaceVariant
-                  : scheme.primary,
-              fontWeight: bill.isOverdue ? FontWeight.w600 : null,
-            ),
-          ),
+          BillStatusText(bill: bill),
         ],
       ),
     );

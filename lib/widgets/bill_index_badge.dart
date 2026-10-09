@@ -31,7 +31,6 @@ class BillIndexBadge extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          Text('Index', style: small),
           Text(
             from != null && to != null
                 ? '${n(from)} → ${n(to)}'
@@ -46,8 +45,35 @@ class BillIndexBadge extends StatelessWidget {
               style: small,
             ),
           if (bill.indexPeriod.isNotEmpty)
-            Text(bill.indexPeriod, textAlign: TextAlign.end, style: small),
+            Text(
+              shortIndexPeriod(bill.indexPeriod),
+              textAlign: TextAlign.end,
+              style: small,
+            ),
         ],
+      ),
+    );
+  }
+}
+
+/// „Plătită” / „Neplătită” la furnizor; roșu când e restantă.
+class BillStatusText extends StatelessWidget {
+  final Bill bill;
+
+  const BillStatusText({super.key, required this.bill});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Text(
+      billProviderStatus(bill),
+      style: TextStyle(
+        color: bill.isOverdue
+            ? scheme.error
+            : bill.openAtProvider
+            ? scheme.onSurfaceVariant
+            : scheme.primary,
+        fontWeight: bill.isOverdue ? FontWeight.bold : null,
       ),
     );
   }

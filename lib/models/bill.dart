@@ -1,7 +1,10 @@
-enum BillProvider { hidroelectrica, eon }
+enum BillProvider { hidroelectrica, eon, electrica }
 
-String billProviderLabel(BillProvider p) =>
-    p == BillProvider.hidroelectrica ? 'Hidroelectrica' : 'E.ON';
+String billProviderLabel(BillProvider p) => switch (p) {
+  BillProvider.hidroelectrica => 'Hidroelectrica',
+  BillProvider.eon => 'E.ON',
+  BillProvider.electrica => 'Electrica',
+};
 
 /// O factură preluată de la un furnizor. [amount] e valoarea facturii;
 /// [balance] și [openAtProvider] reflectă plata reală la furnizor, la

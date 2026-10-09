@@ -39,10 +39,7 @@ void main() {
     expect(restored.paidAt, bill.paidAt);
     expect(restored.openAtProvider, isFalse);
     expect(restored.archived, isTrue);
-    expect(
-      billDatesLine(restored),
-      'Factura din data de 01.09.2026 scadentă la 01.10.2026',
-    );
+    expect(billDatesLine(restored), 'Factura 01.10.2026');
     expect(restored.indexFrom, 1200);
     expect(restored.indexTo, 1350);
     expect(restored.readingType, 'Autocitire');
@@ -74,11 +71,16 @@ void main() {
       make(due: DateTime.now().add(const Duration(days: 3))).isOverdue,
       isFalse,
     );
-    expect(
-      billProviderStatus(make(due: yesterday)),
-      startsWith('Restantă la furnizor'),
-    );
-    expect(billProviderStatus(make(open: false)), 'Plătită la furnizor');
+    expect(billProviderStatus(make(due: yesterday)), 'Neplătită');
+    expect(billProviderStatus(make(open: false)), 'Plătită');
+  });
+
+  test('shortIndexPeriod keeps only day and month of both ends', () {
+    expect(shortIndexPeriod('03.08.2026 – 04.09.2026'), '03.08-04.09');
+    expect(shortIndexPeriod('03/08/2026 - 04/09/2026'), '03.08-04.09');
+    expect(shortIndexPeriod('2026-08-03 / 2026-09-04'), '03.08-04.09');
+    expect(shortIndexPeriod('3.8.2026-4.9.2026'), '03.08-04.09');
+    expect(shortIndexPeriod('august'), 'august');
   });
 
   test('parseAmount handles Romanian and standard formats', () {

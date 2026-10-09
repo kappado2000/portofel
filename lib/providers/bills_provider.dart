@@ -8,6 +8,7 @@ import 'package:uuid/uuid.dart';
 
 import '../models/bill.dart';
 import '../services/bill_http.dart';
+import '../services/electrica_api.dart';
 import '../services/eon_api.dart';
 import '../services/hidroelectrica_api.dart';
 
@@ -385,9 +386,11 @@ class BillsProvider extends ChangeNotifier {
         if (creds == null) continue;
         final p = account.provider;
         try {
-          final fetched = p == BillProvider.hidroelectrica
-              ? await _fetchHidro(creds)
-              : await _fetchEon(account.id, creds, askMfaCode);
+          final fetched = switch (p) {
+            BillProvider.hidroelectrica => await _fetchHidro(creds),
+            BillProvider.eon => await _fetchEon(account.id, creds, askMfaCode),
+            BillProvider.electrica => await _fetchElectrica(creds),
+          };
           if (fetched == null) {
             _errors[account.id] =
                 'Actualizare anulată: lipsește codul de verificare.';
@@ -425,6 +428,23 @@ class BillsProvider extends ChangeNotifier {
         since: _sinceFor(BillProvider.hidroelectrica),
         sinceDefault: _sinceDefault,
         skip: _skipFor(BillProvider.hidroelectrica),
+      );
+      return (bills, api.locations);
+    } finally {
+      api.close();
+    }
+  }
+
+  Future<(List<Bill>, Map<String, String>)> _fetchElectrica(
+    (String, String) creds,
+  ) async {
+    final api = ElectricaApi();
+    try {
+      await api.login(creds.$1, creds.$2);
+      final bills = await api.fetchOpenBills(
+        since: _sinceFor(BillProvider.electrica),
+        sinceDefault: _sinceDefault,
+        skip: _skipFor(BillProvider.electrica),
       );
       return (bills, api.locations);
     } finally {
@@ -507,6 +527,11 @@ class BillsProvider extends ChangeNotifier {
       throw BillFetchException('Contul $name nu mai este conectat.');
     }
     Uint8List? pdf;
+    if (bill.provider == BillProvider.electrica) {
+      throw BillFetchException(
+        'Deschiderea facturii nu e disponibilă încă pentru Electrica.',
+      );
+    }
     if (bill.provider == BillProvider.hidroelectrica) {
       // Hidroelectrica oferă doar PDF-ul facturii curente a locului de
       // consum; pentru una mai veche s-ar deschide alt document.

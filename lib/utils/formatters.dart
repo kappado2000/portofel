@@ -48,23 +48,28 @@ String? billIndexLine(Bill bill) {
   return extra.isEmpty ? range : '$range ($extra)';
 }
 
-/// „Factura din data de … scadentă la …”, cu părțile cunoscute.
+/// „Factura 14.10.2026” — factura cu data scadenței (sau, în lipsa ei, cu
+/// data emiterii).
 String billDatesLine(Bill bill) {
-  final issued = bill.issueDate;
-  final due = bill.dueDate;
-  return [
-    issued == null
-        ? 'Factura'
-        : 'Factura din data de ${dateFormat.format(issued)}',
-    if (due != null) 'scadentă la ${dateFormat.format(due)}',
-  ].join(' ');
+  final date = bill.dueDate ?? bill.issueDate;
+  return date == null ? 'Factura' : 'Factura ${dateFormat.format(date)}';
+}
+
+/// Perioada de consum, scurtată la „03.08-04.09”. Dacă textul nu conține
+/// două date recunoscute, rămâne neschimbat.
+String shortIndexPeriod(String period) {
+  final dates = <String>[];
+  final pattern = RegExp(
+    r'(\d{4})-(\d{2})-(\d{2})|(\d{1,2})[./-](\d{1,2})[./-](\d{4})',
+  );
+  for (final m in pattern.allMatches(period)) {
+    final day = (m.group(3) ?? m.group(4))!.padLeft(2, '0');
+    final month = (m.group(2) ?? m.group(5))!.padLeft(2, '0');
+    dates.add('$day.$month');
+  }
+  return dates.length >= 2 ? '${dates[0]}-${dates[1]}' : period.trim();
 }
 
 /// Starea plății reale la furnizor, afișată sub factură.
-String billProviderStatus(Bill bill) {
-  if (!bill.openAtProvider) return 'Plătită la furnizor';
-  final rest = formatAmount(bill.balance, AccountCurrency.ron);
-  return bill.isOverdue
-      ? 'Restantă la furnizor: $rest neplătiți'
-      : 'Neplătită încă la furnizor';
-}
+String billProviderStatus(Bill bill) =>
+    bill.openAtProvider ? 'Neplătită' : 'Plătită';

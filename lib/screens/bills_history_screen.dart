@@ -197,19 +197,19 @@ class _HistoryTile extends StatelessWidget {
         ),
       ),
       title: Text(
-        '${billProviderLabel(bill.provider)} · ${_lei(bill.amount)}',
-        style: TextStyle(fontWeight: FontWeight.w600, color: tint.primary),
+        _lei(bill.amount),
+        style: Theme.of(context).textTheme.titleLarge
+            ?.copyWith(fontWeight: FontWeight.bold),
       ),
-      subtitle: Text(
-        [
-          if (paidAt != null) 'Achitată la ${dateFormat.format(paidAt)}',
-          billDatesLine(bill),
-          if (bill.invoiceNumber.isNotEmpty) 'Nr. ${bill.invoiceNumber}',
-          place,
-          if (bill.isOverdue) billProviderStatus(bill),
-        ].join('\n'),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(place),
+          Text(billDatesLine(bill)),
+          if (paidAt != null) Text('Achitată ${dateFormat.format(paidAt)}'),
+          BillStatusText(bill: bill),
+        ],
       ),
-      isThreeLine: true,
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -221,11 +221,8 @@ class _HistoryTile extends StatelessWidget {
               _ => onDelete(),
             },
             itemBuilder: (_) => const [
-              PopupMenuItem(value: 'pdf', child: Text('Deschide factura')),
-              PopupMenuItem(
-                value: 'restore',
-                child: Text('Întoarce în lista de facturi'),
-              ),
+              PopupMenuItem(value: 'pdf', child: Text('Deschide')),
+              PopupMenuItem(value: 'restore', child: Text('Întoarce')),
               PopupMenuItem(value: 'delete', child: Text('Șterge')),
             ],
           ),
