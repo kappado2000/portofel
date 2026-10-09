@@ -57,6 +57,19 @@ class BillsProvider extends ChangeNotifier {
     return list;
   }
 
+  /// Adresele alese pentru afișare ale unui furnizor, ca (cod, adresă):
+  /// cele cunoscute de la furnizor plus cele care apar doar pe facturi.
+  List<(String, String)> visibleLocationsFor(BillProvider p) {
+    final list = locationsFor(p)
+        .where((l) => isLocationVisible(p, l.$1))
+        .toList();
+    final known = {for (final l in list) l.$1};
+    for (final b in _active.where((b) => b.provider == p)) {
+      if (known.add(b.contractCode)) list.add((b.contractCode, b.address));
+    }
+    return list;
+  }
+
   bool isLocationVisible(BillProvider p, String code) =>
       !_hidden.contains(_locKey(p, code));
 
@@ -388,6 +401,7 @@ class BillsProvider extends ChangeNotifier {
         await _billsBox?.put(f.id, f.toMap());
       } else if (!existing.archived) {
         existing
+          ..invoiceNumber = f.invoiceNumber
           ..amount = f.amount
           ..balance = f.balance
           ..address = f.address

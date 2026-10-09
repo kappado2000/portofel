@@ -14,7 +14,7 @@ class Bill {
   final BillProvider provider;
   final String contractCode;
   String address;
-  final String invoiceNumber;
+  String invoiceNumber;
   double amount;
   double balance;
   DateTime? issueDate;

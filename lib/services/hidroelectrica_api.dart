@@ -141,6 +141,12 @@ class HidroelectricaApi {
     }
   }
 
+  /// Un număr de factură afișabil: doar litere și cifre, altfel [fallback].
+  static String _readable(String number, {String fallback = ''}) {
+    final n = number.trim();
+    return RegExp(r'^[A-Za-z0-9 ./-]{1,24}$').hasMatch(n) ? n : fallback;
+  }
+
   static String _invoiceKey(dynamic number) =>
       '${number ?? ''}'.trim().replaceFirst(RegExp(r'^0+'), '');
 
@@ -199,6 +205,23 @@ class HidroelectricaApi {
           )
           .firstOrNull;
 
+      // Dacă nici așa nu se regăsește, factura cu sold e cea mai recentă.
+      if (currentInHistory == null && balance > 0 && history.isNotEmpty) {
+        currentInHistory = history.reduce(
+          (a, b) =>
+              (parseBillDate(b['invoiceDate']) ?? DateTime(0)).isAfter(
+                parseBillDate(a['invoiceDate']) ?? DateTime(0),
+              )
+              ? b
+              : a,
+        );
+      }
+      // GetBill întoarce numărul facturii codat; cel lizibil e în istoric.
+      final shownNumber = _readable(
+        '${currentInHistory?['exbel'] ?? currentInHistory?['invoiceId'] ?? ''}',
+        fallback: _readable(currentNumber),
+      );
+
       final accountBills = <Bill>[];
       if (balance > 0) {
         accountBills.add(
@@ -207,7 +230,7 @@ class HidroelectricaApi {
             provider: BillProvider.hidroelectrica,
             contractCode: uan,
             address: address,
-            invoiceNumber: currentNumber,
+            invoiceNumber: shownNumber,
             amount: currentAmount > 0 ? currentAmount : balance,
             balance: balance,
             issueDate: parseBillDate(currentInHistory?['invoiceDate']),

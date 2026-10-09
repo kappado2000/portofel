@@ -453,6 +453,7 @@ class _ProviderSection extends StatelessWidget {
     final connected = provider.isConnected(billProvider);
     final error = provider.errorFor(billProvider);
     final updated = provider.lastUpdated(billProvider);
+    final locations = provider.visibleLocationsFor(billProvider);
 
     final paidCount = bills.where((b) => b.paid).length;
     final bool? sectionValue = bills.isEmpty || paidCount == 0
@@ -534,23 +535,59 @@ class _ProviderSection extends StatelessWidget {
                 label: Text('Conectează contul $name'),
               ),
             )
-          else if (bills.isEmpty)
+          else if (locations.isEmpty)
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
               child: Text(
                 updated == null
                     ? 'Trage în jos sau apasă pe actualizare ca să preiei '
                           'facturile.'
-                    : 'Nicio factură de plată.',
+                    : 'Nicio adresă aleasă pentru afișare.',
                 style: textTheme.bodyMedium?.copyWith(
                   color: scheme.onSurfaceVariant,
                 ),
               ),
             )
           else
-            for (final bill in bills) ...[
+            for (final location in locations) ...[
               const Divider(height: 1),
-              _BillTile(bill: bill),
+              Container(
+                color: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.place_outlined,
+                      size: 18,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        location.$2.isEmpty
+                            ? 'Cod ${location.$1}'
+                            : location.$2,
+                        style: textTheme.titleSmall,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (!bills.any((b) => b.contractCode == location.$1))
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(42, 10, 16, 12),
+                  child: Text(
+                    'Nicio factură de plată.',
+                    style: textTheme.bodyMedium?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                )
+              else
+                for (final bill in bills.where(
+                  (b) => b.contractCode == location.$1,
+                ))
+                  _BillTile(bill: bill),
             ],
         ],
       ),
@@ -566,10 +603,6 @@ class _BillTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final place = bill.address.isNotEmpty
-        ? bill.address
-        : 'Cod ${bill.contractCode}';
-
     final String? status = !bill.openAtProvider
         ? 'Achitată la furnizor'
         : bill.isOverdue
@@ -594,7 +627,6 @@ class _BillTile extends StatelessWidget {
       subtitle: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(place),
           Text(billDatesLine(bill)),
           if (bill.invoiceNumber.isNotEmpty) Text('Nr. ${bill.invoiceNumber}'),
           InkWell(
