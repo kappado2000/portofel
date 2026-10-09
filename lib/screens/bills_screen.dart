@@ -8,6 +8,7 @@ import '../providers/bills_provider.dart';
 import '../services/eon_api.dart';
 import '../utils/card_styles.dart';
 import '../utils/formatters.dart';
+import '../widgets/bill_index_badge.dart';
 import 'bills_history_screen.dart';
 
 String _lei(double v) => formatAmount(v, AccountCurrency.ron);
@@ -507,6 +508,9 @@ class _BillTile extends StatelessWidget {
     return CheckboxListTile(
       value: bill.paid,
       controlAffinity: ListTileControlAffinity.leading,
+      secondary: BillIndexBadge.hasIndex(bill)
+          ? BillIndexBadge(bill: bill)
+          : null,
       onChanged: (v) => context.read<BillsProvider>().setPaid(bill, v ?? false),
       title: Text(
         _lei(bill.balance),
@@ -522,7 +526,6 @@ class _BillTile extends StatelessWidget {
           Text(place),
           Text(billDatesLine(bill)),
           if (bill.invoiceNumber.isNotEmpty) Text('Nr. ${bill.invoiceNumber}'),
-          if (billIndexLine(bill) case final line?) Text(line),
           if (status != null)
             Text(
               status,

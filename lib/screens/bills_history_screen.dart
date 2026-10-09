@@ -5,6 +5,7 @@ import '../models/account.dart';
 import '../models/bill.dart';
 import '../providers/bills_provider.dart';
 import '../utils/formatters.dart';
+import '../widgets/bill_index_badge.dart';
 
 const _months = [
   'Ianuarie',
@@ -165,15 +166,20 @@ class _HistoryTile extends StatelessWidget {
           billDatesLine(bill),
           if (bill.invoiceNumber.isNotEmpty) 'Nr. ${bill.invoiceNumber}',
           place,
-          ?billIndexLine(bill),
         ].join('\n'),
       ),
       isThreeLine: true,
-      trailing: PopupMenuButton<String>(
-        onSelected: (v) => v == 'restore' ? onRestore() : onDelete(),
-        itemBuilder: (_) => const [
-          PopupMenuItem(value: 'restore', child: Text('Readu în listă')),
-          PopupMenuItem(value: 'delete', child: Text('Șterge')),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          BillIndexBadge(bill: bill),
+          PopupMenuButton<String>(
+            onSelected: (v) => v == 'restore' ? onRestore() : onDelete(),
+            itemBuilder: (_) => const [
+              PopupMenuItem(value: 'restore', child: Text('Readu în listă')),
+              PopupMenuItem(value: 'delete', child: Text('Șterge')),
+            ],
+          ),
         ],
       ),
     );
