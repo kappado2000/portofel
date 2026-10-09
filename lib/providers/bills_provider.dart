@@ -464,9 +464,13 @@ class BillsProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Readuce o factură din istoric în lista de facturi, tot bifată.
+  /// Întoarce o factură din istoric în lista de facturi, nebifată (ca și
+  /// cum nu ar fi fost achitată).
   Future<void> restoreFromHistory(Bill bill) async {
-    bill.archived = false;
+    bill
+      ..archived = false
+      ..paid = false
+      ..paidAt = null;
     await _billsBox?.put(bill.id, bill.toMap());
     notifyListeners();
   }

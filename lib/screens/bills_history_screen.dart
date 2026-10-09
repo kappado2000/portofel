@@ -29,6 +29,35 @@ String _lei(double v) => formatAmount(v, AccountCurrency.ron);
 class BillsHistoryScreen extends StatelessWidget {
   const BillsHistoryScreen({super.key});
 
+  Future<void> _confirmRestore(BuildContext context, Bill bill) async {
+    final provider = context.read<BillsProvider>();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Întorci factura în lista de facturi?'),
+        content: Text(
+          '${billProviderLabel(bill.provider)}, ${_lei(bill.balance)}. '
+          '${billDatesLine(bill)}.
+
+'
+          'Factura iese din istoric și reapare în lista de facturi, '
+          'nebifată.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Renunță'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Întoarce'),
+          ),
+        ],
+      ),
+    );
+    if (ok == true) await provider.restoreFromHistory(bill);
+  }
+
   Future<void> _confirmDelete(BuildContext context, Bill bill) async {
     final provider = context.read<BillsProvider>();
     final ok = await showDialog<bool>(
@@ -126,7 +155,7 @@ class BillsHistoryScreen extends StatelessWidget {
                           const Divider(height: 1),
                           _HistoryTile(
                             bill: bill,
-                            onRestore: () => provider.restoreFromHistory(bill),
+                            onRestore: () => _confirmRestore(context, bill),
                             onDelete: () => _confirmDelete(context, bill),
                           ),
                         ],
@@ -182,7 +211,10 @@ class _HistoryTile extends StatelessWidget {
             },
             itemBuilder: (_) => const [
               PopupMenuItem(value: 'pdf', child: Text('Deschide factura')),
-              PopupMenuItem(value: 'restore', child: Text('Readu în listă')),
+              PopupMenuItem(
+                value: 'restore',
+                child: Text('Întoarce în lista de facturi'),
+              ),
               PopupMenuItem(value: 'delete', child: Text('Șterge')),
             ],
           ),
