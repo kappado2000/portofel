@@ -112,6 +112,39 @@ class BillsProvider extends ChangeNotifier {
     return list;
   }
 
+  /// Numele dat de utilizator unei adrese (ex. „Tata”), sau `null`.
+  String? locationName(BillProvider p, String code) {
+    final names = _metaBox?.get('location_names');
+    final name = names is Map ? names[_locKey(p, code)] : null;
+    return name is String && name.isNotEmpty ? name : null;
+  }
+
+  /// Dă unei adrese un nume personalizat, păstrat permanent. Un nume gol
+  /// îl șterge.
+  Future<void> setLocationName(BillProvider p, String code, String name) async {
+    final raw = _metaBox?.get('location_names');
+    final names = <String, String>{
+      if (raw is Map)
+        for (final e in raw.entries) '${e.key}': '${e.value}',
+    };
+    final trimmed = name.trim();
+    trimmed.isEmpty
+        ? names.remove(_locKey(p, code))
+        : names[_locKey(p, code)] = trimmed;
+    await _metaBox?.put('location_names', names);
+    notifyListeners();
+  }
+
+  /// Cum se afișează locul unei facturi: numele personalizat urmat de
+  /// adresă, sau doar adresa (ori codul, dacă adresa lipsește).
+  String placeLabel(Bill bill) {
+    final address = bill.address.isNotEmpty
+        ? bill.address
+        : 'Cod ${bill.contractCode}';
+    final name = locationName(bill.provider, bill.contractCode);
+    return name == null ? address : '$name · $address';
+  }
+
   bool isLocationVisible(BillProvider p, String code) =>
       !_hidden.contains(_locKey(p, code));
 

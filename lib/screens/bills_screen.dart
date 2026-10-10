@@ -309,7 +309,10 @@ class _BillsScreenState extends State<BillsScreen> {
                         for (final l in all)
                           CheckboxListTile(
                             controlAffinity: ListTileControlAffinity.leading,
-                            title: Text(l.$3.isEmpty ? 'Cod ${l.$2}' : l.$3),
+                            title: Text(
+                              provider.locationName(l.$1, l.$2) ??
+                                  (l.$3.isEmpty ? 'Cod ${l.$2}' : l.$3),
+                            ),
                             subtitle: Text(
                               '${billProviderLabel(l.$1)} · cod ${l.$2}',
                             ),
@@ -568,7 +571,7 @@ class _OverdueBanner extends StatelessWidget {
                   for (final b in bills)
                     Text(
                       '${billProviderLabel(b.provider)} · '
-                      '${b.address.isEmpty ? 'cod ${b.contractCode}' : b.address}'
+                      '${context.read<BillsProvider>().placeLabel(b)}'
                       ' · ${_lei(b.balance)} · scadentă la '
                       '${dateFormat.format(b.dueDate!)}'
                       '${b.archived ? ' (în istoric)' : ''}',
@@ -718,23 +721,10 @@ class _ProviderSection extends StatelessWidget {
           else
             for (final location in locations) ...[
               const Divider(height: 1),
-              Container(
-                color: tint.primaryContainer.withValues(alpha: 0.35),
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                child: Row(
-                  children: [
-                    Icon(Icons.place_outlined, size: 18, color: tint.primary),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        location.$2.isEmpty
-                            ? 'Cod ${location.$1}'
-                            : location.$2,
-                        style: textTheme.titleSmall,
-                      ),
-                    ),
-                  ],
-                ),
+              _LocationHeader(
+                billProvider: billProvider,
+                code: location.$1,
+                address: location.$2,
               ),
               if (!bills.any((b) => b.contractCode == location.$1))
                 Padding(
@@ -753,6 +743,122 @@ class _ProviderSection extends StatelessWidget {
                   _BillTile(bill: bill),
             ],
         ],
+      ),
+    );
+  }
+}
+
+/// Antetul unei adrese din secțiunea unui furnizor. Apăsarea lui permite
+/// stabilirea unui nume personalizat pentru adresă (ex. „Tata”).
+class _LocationHeader extends StatelessWidget {
+  final BillProvider billProvider;
+  final String code;
+  final String address;
+
+  const _LocationHeader({
+    required this.billProvider,
+    required this.code,
+    required this.address,
+  });
+
+  Future<void> _rename(BuildContext context, String? current) async {
+    final provider = context.read<BillsProvider>();
+    final controller = TextEditingController(text: current ?? '');
+    final name = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Nume pentru adresă'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(address.isEmpty ? 'Cod $code' : address),
+            const SizedBox(height: 12),
+            TextField(
+              controller: controller,
+              autofocus: true,
+              textCapitalization: TextCapitalization.sentences,
+              decoration: const InputDecoration(
+                labelText: 'Nume (ex. Tata)',
+                border: OutlineInputBorder(),
+              ),
+              onSubmitted: (v) => Navigator.pop(ctx, v),
+            ),
+          ],
+        ),
+        actions: [
+          if (current != null)
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, ''),
+              child: const Text('Șterge numele'),
+            ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Renunță'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, controller.text),
+            child: const Text('Salvează'),
+          ),
+        ],
+      ),
+    );
+    if (name != null) await provider.setLocationName(billProvider, code, name);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final scheme = Theme.of(context).colorScheme;
+    final tint = billProviderScheme(context, billProvider);
+    final name = context.watch<BillsProvider>().locationName(
+      billProvider,
+      code,
+    );
+    final place = address.isEmpty ? 'Cod $code' : address;
+
+    return Material(
+      color: tint.primaryContainer.withValues(alpha: 0.35),
+      child: InkWell(
+        onTap: () => _rename(context, name),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 12, 8),
+          child: Row(
+            children: [
+              Icon(
+                name == null ? Icons.place_outlined : Icons.person_outline,
+                size: 18,
+                color: tint.primary,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      name ?? place,
+                      style: textTheme.titleSmall?.copyWith(
+                        fontWeight: name == null ? null : FontWeight.bold,
+                      ),
+                    ),
+                    if (name != null)
+                      Text(
+                        place,
+                        style: textTheme.bodySmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.edit_outlined,
+                size: 16,
+                color: scheme.onSurfaceVariant,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
