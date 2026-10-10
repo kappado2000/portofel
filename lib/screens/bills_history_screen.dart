@@ -181,7 +181,9 @@ class _HistoryTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final paidAt = bill.paidAt;
-    final place = context.watch<BillsProvider>().placeLabel(bill);
+    final place = bill.address.isNotEmpty
+        ? bill.address
+        : 'Cod ${bill.contractCode}';
     final tint = billProviderScheme(context, bill.provider);
 
     final scheme = Theme.of(context).colorScheme;
