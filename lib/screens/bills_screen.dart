@@ -14,19 +14,28 @@ import 'bills_history_screen.dart';
 String _lei(double v) => formatAmount(v, AccountCurrency.ron);
 
 class BillsScreen extends StatefulWidget {
-  const BillsScreen({super.key});
+  /// Pagina cu nume propriu afișată (`null` = pagina principală).
+  final String? pageId;
+
+  const BillsScreen({super.key, this.pageId});
 
   @override
   State<BillsScreen> createState() => _BillsScreenState();
 }
 
 class _BillsScreenState extends State<BillsScreen> {
+  String? get _page => widget.pageId;
+
   @override
   void initState() {
     super.initState();
     // Actualizare automată la deschiderea paginii.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && context.read<BillsProvider>().hasAnyAccount) _refresh();
+      if (mounted &&
+          _page == null &&
+          context.read<BillsProvider>().hasAnyAccount) {
+        _refresh();
+      }
     });
   }
 
@@ -205,8 +214,8 @@ class _BillsScreenState extends State<BillsScreen> {
       builder: (ctx) => AlertDialog(
         title: const Text('Salvează în istoric'),
         content: Text(
-          '${provider.paidCount} facturi bifate, în total '
-          '${_lei(provider.paidTotal())}, vor fi mutate în istoricul '
+          '${provider.paidCount(_page)} facturi bifate, în total '
+          '${_lei(provider.paidTotal(page: _page))}, vor fi mutate în istoricul '
           'facturilor achitate, cu data achitării '
           '${dateFormat.format(DateTime.now())}.',
         ),
@@ -223,7 +232,7 @@ class _BillsScreenState extends State<BillsScreen> {
       ),
     );
     if (ok != true || !mounted) return;
-    await provider.archivePaid();
+    await provider.archivePaid(_page);
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -235,7 +244,7 @@ class _BillsScreenState extends State<BillsScreen> {
 
   void _openHistory() => Navigator.push(
     context,
-    MaterialPageRoute(builder: (_) => const BillsHistoryScreen()),
+    MaterialPageRoute(builder: (_) => BillsHistoryScreen(pageId: _page)),
   );
 
   Future<void> _chooseStartDate() async {
@@ -257,7 +266,10 @@ class _BillsScreenState extends State<BillsScreen> {
     final provider = context.read<BillsProvider>();
     final all = [
       for (final p in BillProvider.values)
-        for (final loc in provider.locationsFor(p)) (p, loc.$1, loc.$2),
+        for (final loc in provider.locationsFor(p))
+          if (provider.pageOfLocation(BillsProvider.locationKey(p, loc.$1)) ==
+              null)
+            (p, loc.$1, loc.$2),
     ];
     final hidden = provider.hiddenLocations;
 
@@ -345,15 +357,70 @@ class _BillsScreenState extends State<BillsScreen> {
     if (mounted) await _refresh();
   }
 
-  Future<void> _removePaid() async {
+  Future<String?> _askPageName({String initial = ''}) {
+    final controller = TextEditingController(text: initial);
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(initial.isEmpty ? 'Pagină nouă' : 'Redenumește pagina'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          textCapitalization: TextCapitalization.sentences,
+          decoration: const InputDecoration(
+            labelText: 'Nume (ex. Facturi Tata)',
+            border: OutlineInputBorder(),
+          ),
+          onSubmitted: (v) => Navigator.pop(ctx, v),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Renunță'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, controller.text),
+            child: const Text('Salvează'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _addPage() async {
     final provider = context.read<BillsProvider>();
+    final name = await _askPageName();
+    if (name == null || name.trim().isEmpty || !mounted) return;
+    final page = await provider.addPage(name);
+    if (!mounted) return;
+    await _choosePageAddresses(page.id);
+    if (!mounted) return;
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => BillsScreen(pageId: page.id)),
+    );
+  }
+
+  Future<void> _renamePage() async {
+    final provider = context.read<BillsProvider>();
+    final page = provider.pageById(_page);
+    if (page == null) return;
+    final name = await _askPageName(initial: page.name);
+    if (name == null || name.trim().isEmpty) return;
+    await provider.renamePage(page.id, name);
+  }
+
+  Future<void> _deletePage() async {
+    final provider = context.read<BillsProvider>();
+    final page = provider.pageById(_page);
+    if (page == null) return;
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Șterge facturile bifate?'),
-        content: Text(
-          '${provider.paidCount} facturi bifate, în total '
-          '${_lei(provider.paidTotal())}, vor fi scoase din listă.',
+        title: Text('Ștergi pagina „${page.name}”?'),
+        content: const Text(
+          'Facturile și istoricul nu se șterg: adresele paginii revin pe '
+          'pagina principală.',
         ),
         actions: [
           TextButton(
@@ -367,7 +434,110 @@ class _BillsScreenState extends State<BillsScreen> {
         ],
       ),
     );
-    if (ok == true) await provider.removePaid();
+    if (ok != true || !mounted) return;
+    Navigator.pop(context);
+    await provider.deletePage(page.id);
+  }
+
+  /// Alegerea adreselor unei pagini, din toate conturile.
+  Future<void> _choosePageAddresses(String pageId) async {
+    final provider = context.read<BillsProvider>();
+    final all = [
+      for (final p in BillProvider.values)
+        for (final loc in provider.locationsFor(p)) (p, loc.$1, loc.$2),
+    ];
+    final chosen = Set.of(provider.pageById(pageId)?.locations ?? <String>{});
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => AlertDialog(
+          title: Text('Adresele paginii „${provider.pageById(pageId)?.name}”'),
+          contentPadding: const EdgeInsets.fromLTRB(0, 16, 0, 0),
+          content: SizedBox(
+            width: 420,
+            child: all.isEmpty
+                ? const Padding(
+                    padding: EdgeInsets.fromLTRB(24, 0, 24, 8),
+                    child: Text(
+                      'Nu se cunosc încă adresele. Conectează un cont și '
+                      'actualizează facturile, apoi revino aici.',
+                    ),
+                  )
+                : ListView(
+                    shrinkWrap: true,
+                    children: [
+                      for (final l in all)
+                        Builder(
+                          builder: (_) {
+                            final key = BillsProvider.locationKey(l.$1, l.$2);
+                            final other = provider.pageOfLocation(key);
+                            final elsewhere =
+                                other != null && other.id != pageId;
+                            return CheckboxListTile(
+                              controlAffinity: ListTileControlAffinity.leading,
+                              title: Text(l.$3.isEmpty ? 'Cod ${l.$2}' : l.$3),
+                              subtitle: Text(
+                                elsewhere && !chosen.contains(key)
+                                    ? '${billProviderLabel(l.$1)} · acum pe '
+                                          'pagina „${other.name}”'
+                                    : billProviderLabel(l.$1),
+                              ),
+                              value: chosen.contains(key),
+                              onChanged: (v) => setLocal(() {
+                                v == true
+                                    ? chosen.add(key)
+                                    : chosen.remove(key);
+                              }),
+                            );
+                          },
+                        ),
+                    ],
+                  ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Renunță'),
+            ),
+            if (all.isNotEmpty)
+              FilledButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Aplică'),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (ok != true || !mounted) return;
+    await provider.setPageLocations(pageId, chosen);
+    // Adresele care erau ascunse nu au fost interogate până acum.
+    if (mounted) await _refresh();
+  }
+
+  Future<void> _removePaid() async {
+    final provider = context.read<BillsProvider>();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Șterge facturile bifate?'),
+        content: Text(
+          '${provider.paidCount(_page)} facturi bifate, în total '
+          '${_lei(provider.paidTotal(page: _page))}, vor fi scoase din listă.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Renunță'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Șterge'),
+          ),
+        ],
+      ),
+    );
+    if (ok == true) await provider.removePaid(_page);
   }
 
   @override
@@ -376,7 +546,7 @@ class _BillsScreenState extends State<BillsScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Facturi'),
+        title: Text(provider.pageById(_page)?.name ?? 'Facturi'),
         actions: [
           if (provider.refreshing)
             const Padding(
@@ -407,26 +577,47 @@ class _BillsScreenState extends State<BillsScreen> {
                   _chooseStartDate();
                 case 'addresses':
                   _chooseAddresses();
+                case 'pageAddresses':
+                  _choosePageAddresses(_page!);
+                case 'pageRename':
+                  _renamePage();
+                case 'pageDelete':
+                  _deletePage();
                 case 'clear':
                   _removePaid();
               }
             },
             itemBuilder: (_) => [
-              const PopupMenuItem(
-                value: 'accounts',
-                child: Text('Conturi furnizori'),
-              ),
-              const PopupMenuItem(
-                value: 'start',
-                child: Text('Facturi începând cu…'),
-              ),
-              const PopupMenuItem(
-                value: 'addresses',
-                child: Text('Adrese afișate'),
-              ),
+              if (_page == null) ...const [
+                PopupMenuItem(
+                  value: 'accounts',
+                  child: Text('Conturi furnizori'),
+                ),
+                PopupMenuItem(
+                  value: 'start',
+                  child: Text('Facturi începând cu…'),
+                ),
+                PopupMenuItem(
+                  value: 'addresses',
+                  child: Text('Adrese afișate'),
+                ),
+              ] else ...const [
+                PopupMenuItem(
+                  value: 'pageAddresses',
+                  child: Text('Adresele paginii'),
+                ),
+                PopupMenuItem(
+                  value: 'pageRename',
+                  child: Text('Redenumește pagina'),
+                ),
+                PopupMenuItem(
+                  value: 'pageDelete',
+                  child: Text('Șterge pagina'),
+                ),
+              ],
               PopupMenuItem(
                 value: 'clear',
-                enabled: provider.paidCount > 0,
+                enabled: provider.paidCount(_page) > 0,
                 child: const Text('Șterge facturile bifate'),
               ),
             ],
@@ -439,21 +630,70 @@ class _BillsScreenState extends State<BillsScreen> {
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
           children: [
             _TotalsCard(
-              unpaid: provider.unpaidTotal(),
-              paid: provider.paidTotal(),
-              onSave: provider.paidCount > 0 ? _saveToHistory : null,
+              unpaid: provider.unpaidTotal(page: _page),
+              paid: provider.paidTotal(page: _page),
+              onSave: provider.paidCount(_page) > 0 ? _saveToHistory : null,
             ),
-            if (provider.overdueBills.isNotEmpty) ...[
+            if (provider.overdueBills(_page).isNotEmpty) ...[
               const SizedBox(height: 12),
-              _OverdueBanner(bills: provider.overdueBills),
+              _OverdueBanner(bills: provider.overdueBills(_page)),
+            ],
+            if (_page == null) ...[
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final g in provider.pages)
+                    ActionChip(
+                      avatar: const Icon(Icons.folder_outlined, size: 18),
+                      label: Text(
+                        '${g.name} · ${_lei(provider.unpaidTotal(page: g.id))}',
+                      ),
+                      onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => BillsScreen(pageId: g.id),
+                        ),
+                      ),
+                    ),
+                  ActionChip(
+                    avatar: const Icon(Icons.add, size: 18),
+                    label: const Text('Pagină nouă'),
+                    onPressed: _addPage,
+                  ),
+                ],
+              ),
             ],
             const SizedBox(height: 16),
             for (final p in BillProvider.values)
-              if (!provider.hasAnyAccount || provider.isConnected(p))
+              if (_page != null
+                  ? provider.visibleLocationsFor(p, _page).isNotEmpty
+                  : !provider.hasAnyAccount || provider.isConnected(p))
                 _ProviderSection(
+                  pageId: _page,
                   billProvider: p,
                   onConnect: () => _editAccount(p),
                 ),
+            if (_page != null &&
+                (provider.pageById(_page)?.locations.isEmpty ?? true))
+              Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  children: [
+                    const Text(
+                      'Pagina nu are încă nicio adresă.',
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 12),
+                    FilledButton.icon(
+                      onPressed: () => _choosePageAddresses(_page!),
+                      icon: const Icon(Icons.place_outlined),
+                      label: const Text('Alege adresele'),
+                    ),
+                  ],
+                ),
+              ),
           ],
         ),
       ),
@@ -586,8 +826,13 @@ class _OverdueBanner extends StatelessWidget {
 class _ProviderSection extends StatelessWidget {
   final BillProvider billProvider;
   final VoidCallback onConnect;
+  final String? pageId;
 
-  const _ProviderSection({required this.billProvider, required this.onConnect});
+  const _ProviderSection({
+    required this.billProvider,
+    required this.onConnect,
+    this.pageId,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -595,12 +840,12 @@ class _ProviderSection extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     final name = billProviderLabel(billProvider);
-    final bills = provider.billsFor(billProvider);
+    final bills = provider.billsFor(billProvider, pageId);
     final connected = provider.isConnected(billProvider);
     final errors = provider.errorsFor(billProvider);
     final accountCount = provider.accountsFor(billProvider).length;
     final updated = provider.lastUpdated(billProvider);
-    final locations = provider.visibleLocationsFor(billProvider);
+    final locations = provider.visibleLocationsFor(billProvider, pageId);
 
     final paidCount = bills.where((b) => b.paid).length;
     final tint = billProviderScheme(context, billProvider);
@@ -633,6 +878,7 @@ class _ProviderSection extends StatelessWidget {
                       : (_) => provider.setSectionPaid(
                           billProvider,
                           sectionValue != true,
+                          pageId,
                         ),
                 ),
                 Expanded(
@@ -667,14 +913,16 @@ class _ProviderSection extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Text(
-                        _lei(provider.unpaidTotal(billProvider)),
+                        _lei(
+                          provider.unpaidTotal(p: billProvider, page: pageId),
+                        ),
                         style: textTheme.titleLarge?.copyWith(
                           color: tint.onPrimaryContainer,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                       Text(
-                        'bifate ${_lei(provider.paidTotal(billProvider))}',
+                        'bifate ${_lei(provider.paidTotal(p: billProvider, page: pageId))}',
                         style: textTheme.bodySmall?.copyWith(
                           color: tint.onPrimaryContainer,
                         ),

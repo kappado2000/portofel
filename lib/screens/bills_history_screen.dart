@@ -28,7 +28,10 @@ String _lei(double v) => formatAmount(v, AccountCurrency.ron);
 
 /// Istoricul facturilor achitate, grupat pe luna achitării.
 class BillsHistoryScreen extends StatelessWidget {
-  const BillsHistoryScreen({super.key});
+  /// Pagina de facturi al cărei istoric se arată (`null` = principală).
+  final String? pageId;
+
+  const BillsHistoryScreen({super.key, this.pageId});
 
   Future<void> _confirmRestore(BuildContext context, Bill bill) async {
     final provider = context.read<BillsProvider>();
@@ -85,7 +88,7 @@ class BillsHistoryScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<BillsProvider>();
-    final bills = provider.archivedBills;
+    final bills = provider.archivedBills(pageId);
     final scheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
 
@@ -98,7 +101,13 @@ class BillsHistoryScreen extends StatelessWidget {
     final total = bills.fold<double>(0, (s, b) => s + b.amount);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Istoric facturi achitate')),
+      appBar: AppBar(
+        title: Text(
+          provider.pageById(pageId) == null
+              ? 'Istoric facturi achitate'
+              : 'Istoric ${provider.pageById(pageId)!.name}',
+        ),
+      ),
       body: bills.isEmpty
           ? Center(
               child: Padding(

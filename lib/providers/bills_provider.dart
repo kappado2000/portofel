@@ -31,6 +31,25 @@ class BillAccount {
   const BillAccount(this.id, this.provider, this.username);
 }
 
+/// O pagină de facturi cu nume propriu (ex. „Tata”), care adună anumite
+/// adrese din toate conturile. O adresă pusă pe o pagină apare doar acolo,
+/// nu și pe pagina principală.
+class BillPage {
+  final String id;
+  String name;
+
+  /// Cheile adreselor (vezi [BillsProvider.locationKey]).
+  final Set<String> locations;
+
+  BillPage(this.id, this.name, this.locations);
+
+  Map<String, dynamic> toMap() => {
+    'id': id,
+    'name': name,
+    'locations': locations.toList(),
+  };
+}
+
 /// Facturile de utilități ale profilului activ. Facturile stau într-o cutie
 /// Hive per profil; datele de logare la furnizori stau în stocarea securizată
 /// a sistemului (Keychain / Keystore), nu în Hive.
@@ -45,6 +64,7 @@ class BillsProvider extends ChangeNotifier {
   List<BillAccount> _accounts = [];
   final Map<String, String> _errors = {};
   final Set<String> _hidden = {};
+  List<BillPage> _pages = [];
   bool _refreshing = false;
 
   bool get refreshing => _refreshing;
@@ -79,10 +99,66 @@ class BillsProvider extends ChangeNotifier {
     return oldest;
   }
 
-  Iterable<Bill> get _active => _bills.where(
-    (b) =>
-        !b.archived && !_hidden.contains(_locKey(b.provider, b.contractCode)),
+  /// Paginile cu nume propriu, în ordinea creării.
+  List<BillPage> get pages => List.unmodifiable(_pages);
+
+  BillPage? pageById(String? id) =>
+      id == null ? null : _pages.where((g) => g.id == id).firstOrNull;
+
+  /// Pagina pe care a fost pusă o adresă, sau `null` dacă e pe cea
+  /// principală.
+  BillPage? pageOfLocation(String key) =>
+      _pages.where((g) => g.locations.contains(key)).firstOrNull;
+
+  /// Dacă o adresă aparține paginii [page] (`null` = pagina principală:
+  /// adresele alese pentru afișare care nu sunt pe nicio altă pagină).
+  bool _inScope(BillProvider p, String code, String? page) {
+    final key = _locKey(p, code);
+    if (page != null) return pageById(page)?.locations.contains(key) ?? false;
+    return !_hidden.contains(key) && pageOfLocation(key) == null;
+  }
+
+  Iterable<Bill> _activeIn(String? page) => _bills.where(
+    (b) => !b.archived && _inScope(b.provider, b.contractCode, page),
   );
+
+  Future<void> _savePages() async {
+    await _metaBox?.put('pages', [for (final g in _pages) g.toMap()]);
+    notifyListeners();
+  }
+
+  Future<BillPage> addPage(String name) async {
+    final page = BillPage(const Uuid().v4(), name.trim(), {});
+    _pages.add(page);
+    await _savePages();
+    return page;
+  }
+
+  Future<void> renamePage(String id, String name) async {
+    pageById(id)?.name = name.trim();
+    await _savePages();
+  }
+
+  /// Șterge pagina; adresele ei revin pe pagina principală.
+  Future<void> deletePage(String id) async {
+    _pages.removeWhere((g) => g.id == id);
+    await _savePages();
+  }
+
+  /// Stabilește adresele unei pagini. O adresă poate sta pe o singură
+  /// pagină, deci cele alese aici sunt scoase de pe celelalte.
+  Future<void> setPageLocations(String id, Set<String> keys) async {
+    for (final g in _pages) {
+      if (g.id == id) {
+        g.locations
+          ..clear()
+          ..addAll(keys);
+      } else {
+        g.locations.removeAll(keys);
+      }
+    }
+    await _savePages();
+  }
 
   static String _locKey(BillProvider p, String code) => '${p.name}|$code';
 
@@ -101,12 +177,10 @@ class BillsProvider extends ChangeNotifier {
 
   /// Adresele alese pentru afișare ale unui furnizor, ca (cod, adresă):
   /// cele cunoscute de la furnizor plus cele care apar doar pe facturi.
-  List<(String, String)> visibleLocationsFor(BillProvider p) {
-    final list = locationsFor(p)
-        .where((l) => isLocationVisible(p, l.$1))
-        .toList();
+  List<(String, String)> visibleLocationsFor(BillProvider p, [String? page]) {
+    final list = locationsFor(p).where((l) => _inScope(p, l.$1, page)).toList();
     final known = {for (final l in list) l.$1};
-    for (final b in _active.where((b) => b.provider == p)) {
+    for (final b in _activeIn(page).where((b) => b.provider == p)) {
       if (known.add(b.contractCode)) list.add((b.contractCode, b.address));
     }
     return list;
@@ -138,20 +212,19 @@ class BillsProvider extends ChangeNotifier {
     return DateTime(d.year, d.month, d.day).subtract(const Duration(days: 1));
   }
 
+  /// Adresele care nu se interoghează: cele ascunse de pe pagina
+  /// principală, dacă nu au fost puse pe o altă pagină.
   Set<String> _skipFor(BillProvider p) => {
     for (final key in _hidden)
-      if (key.startsWith('${p.name}|')) key.substring(p.name.length + 1),
+      if (key.startsWith('${p.name}|') && pageOfLocation(key) == null)
+        key.substring(p.name.length + 1),
   };
 
   /// Facturile salvate în istoric, cele mai recent achitate primele — doar
   /// ale adreselor alese pentru afișare, la fel ca lista de facturi.
-  List<Bill> get archivedBills {
+  List<Bill> archivedBills([String? page]) {
     final list = _bills
-        .where(
-          (b) =>
-              b.archived &&
-              !_hidden.contains(_locKey(b.provider, b.contractCode)),
-        )
+        .where((b) => b.archived && _inScope(b.provider, b.contractCode, page))
         .toList();
     list.sort(
       (a, b) => (b.paidAt ?? b.fetchedAt).compareTo(a.paidAt ?? a.fetchedAt),
@@ -160,8 +233,8 @@ class BillsProvider extends ChangeNotifier {
   }
 
   /// Facturile unui furnizor: întâi cele nebifate, apoi după scadență.
-  List<Bill> billsFor(BillProvider p) {
-    final list = _active.where((b) => b.provider == p).toList();
+  List<Bill> billsFor(BillProvider p, [String? page]) {
+    final list = _activeIn(page).where((b) => b.provider == p).toList();
     list.sort((a, b) {
       if (a.paid != b.paid) return a.paid ? 1 : -1;
       final ad = a.dueDate ?? DateTime(9999);
@@ -189,18 +262,15 @@ class BillsProvider extends ChangeNotifier {
 
   /// Facturile restante la furnizor (neplătite acolo, cu scadența
   /// depășită), inclusiv cele bifate sau deja trecute în istoric.
-  List<Bill> get overdueBills => _bills
-      .where(
-        (b) =>
-            b.isOverdue &&
-            !_hidden.contains(_locKey(b.provider, b.contractCode)),
-      )
+  List<Bill> overdueBills([String? page]) => _bills
+      .where((b) => b.isOverdue && _inScope(b.provider, b.contractCode, page))
       .toList();
 
   /// Totalul facturilor nebifate (opțional, doar ale unui furnizor),
   /// indiferent dacă sunt sau nu plătite la furnizor.
-  double unpaidTotal([BillProvider? p]) =>
-      _sum(_active.where((b) => !b.paid && (p == null || b.provider == p)));
+  double unpaidTotal({BillProvider? p, String? page}) => _sum(
+    _activeIn(page).where((b) => !b.paid && (p == null || b.provider == p)),
+  );
 
   /// Pentru fiecare loc de consum al unui furnizor, data de emitere a
   /// ultimei facturi salvate în istoric: de acolo încolo se afișează toate
@@ -219,10 +289,11 @@ class BillsProvider extends ChangeNotifier {
   }
 
   /// Totalul facturilor bifate (opțional, doar ale unui furnizor).
-  double paidTotal([BillProvider? p]) =>
-      _sum(_active.where((b) => b.paid && (p == null || b.provider == p)));
+  double paidTotal({BillProvider? p, String? page}) => _sum(
+    _activeIn(page).where((b) => b.paid && (p == null || b.provider == p)),
+  );
 
-  int get paidCount => _active.where((b) => b.paid).length;
+  int paidCount([String? page]) => _activeIn(page).where((b) => b.paid).length;
 
   String get _accountsKey => 'bills_${_profileId}_accounts';
   String _sessionKey(String accountId) =>
@@ -241,6 +312,12 @@ class BillsProvider extends ChangeNotifier {
       ..addAll(
         (_metaBox!.get('hidden_locations') as List? ?? []).map((e) => '$e'),
       );
+    _pages = [
+      for (final m in (_metaBox!.get('pages') as List? ?? []))
+        BillPage('${(m as Map)['id']}', '${m['name']}', {
+          for (final k in (m['locations'] as List? ?? [])) '$k',
+        }),
+    ];
     if (_metaBox!.get('start_date') == null) {
       await _metaBox!.put('start_date', startDate.toIso8601String());
     }
@@ -615,7 +692,7 @@ class BillsProvider extends ChangeNotifier {
       (b) =>
           b.accountId == account.id &&
           b.openAtProvider &&
-          !_hidden.contains(_locKey(b.provider, b.contractCode)) &&
+          !_skipFor(b.provider).contains(b.contractCode) &&
           !fetchedIds.contains(b.id),
     )) {
       b.openAtProvider = false;
@@ -632,9 +709,11 @@ class BillsProvider extends ChangeNotifier {
   }
 
   /// Bifează sau debifează toate facturile unui furnizor.
-  Future<void> setSectionPaid(BillProvider p, bool paid) async {
+  Future<void> setSectionPaid(BillProvider p, bool paid, [String? page]) async {
     final now = DateTime.now();
-    for (final b in _active.where((b) => b.provider == p && b.paid != paid)) {
+    for (final b in _activeIn(
+      page,
+    ).where((b) => b.provider == p && b.paid != paid)) {
       b
         ..paid = paid
         ..paidAt = paid ? now : null;
@@ -644,8 +723,8 @@ class BillsProvider extends ChangeNotifier {
   }
 
   /// Șterge din listă toate facturile bifate (fără a le salva în istoric).
-  Future<void> removePaid() async {
-    final gone = _active.where((b) => b.paid).toList();
+  Future<void> removePaid([String? page]) async {
+    final gone = _activeIn(page).where((b) => b.paid).toList();
     for (final b in gone) {
       _bills.remove(b);
       await _billsBox?.delete(b.id);
@@ -655,9 +734,9 @@ class BillsProvider extends ChangeNotifier {
 
   /// Mută facturile bifate în istoric. Data achitării este data salvării
   /// în istoric, nu cea la care a fost pusă bifa.
-  Future<void> archivePaid() async {
+  Future<void> archivePaid([String? page]) async {
     final now = DateTime.now();
-    for (final b in _active.where((b) => b.paid).toList()) {
+    for (final b in _activeIn(page).where((b) => b.paid).toList()) {
       b
         ..archived = true
         ..paidAt = now;
