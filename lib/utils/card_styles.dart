@@ -57,3 +57,76 @@ ColorScheme billProviderScheme(BuildContext context, BillProvider provider) =>
       },
       brightness: Theme.of(context).brightness,
     );
+
+/// Culorile cardului unui furnizor: titlu închis, corp deschis în aceeași
+/// nuanță — albastru la Hidroelectrica, portocaliu la E.ON, verde la
+/// Electrica.
+class BillCardColors {
+  /// Fundalul titlului (nuanța închisă) și culoarea accentelor.
+  final Color header;
+
+  /// Textul de pe titlu.
+  final Color onHeader;
+
+  /// Fundalul restului cardului (nuanța deschisă).
+  final Color body;
+
+  /// Fundalul antetelor de adresă, între cele două.
+  final Color strip;
+
+  const BillCardColors(this.header, this.onHeader, this.body, this.strip);
+}
+
+BillCardColors billCardColors(BuildContext context, BillProvider provider) {
+  final dark = Theme.of(context).brightness == Brightness.dark;
+  return switch (provider) {
+    BillProvider.hidroelectrica =>
+      dark
+          ? const BillCardColors(
+              Color(0xFF0D47A1),
+              Colors.white,
+              Color(0xFF13233F),
+              Color(0xFF1B3560),
+            )
+          : const BillCardColors(
+              Color(0xFF0D47A1),
+              Colors.white,
+              Color(0xFFDCEBFF),
+              Color(0xFFBBD6FA),
+            ),
+    BillProvider.eon =>
+      dark
+          ? const BillCardColors(
+              Color(0xFFD84315),
+              Colors.white,
+              Color(0xFF3A1F10),
+              Color(0xFF57301A),
+            )
+          : const BillCardColors(
+              Color(0xFFD84315),
+              Colors.white,
+              Color(0xFFFFE9D9),
+              Color(0xFFFFD2B3),
+            ),
+    BillProvider.electrica =>
+      dark
+          ? const BillCardColors(
+              Color(0xFF1B5E20),
+              Colors.white,
+              Color(0xFF14301A),
+              Color(0xFF1F4A27),
+            )
+          : const BillCardColors(
+              Color(0xFF1B5E20),
+              Colors.white,
+              Color(0xFFDDF2DE),
+              Color(0xFFBFE3C1),
+            ),
+  };
+}
+
+/// Fundalul paginilor de facturi: galben pal (în tema luminoasă).
+Color? billsPageBackground(BuildContext context) =>
+    Theme.of(context).brightness == Brightness.dark
+    ? null
+    : const Color(0xFFFFF8DC);
