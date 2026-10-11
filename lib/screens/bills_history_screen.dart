@@ -221,7 +221,7 @@ class _HistoryTile extends StatelessWidget {
               children: [
                 Text(
                   _lei(bill.amount),
-                  style: textTheme.titleLarge?.copyWith(
+                  style: textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -229,7 +229,10 @@ class _HistoryTile extends StatelessWidget {
                 Text(billDatesLine(bill), style: muted),
                 if (paidAt != null)
                   Text('Achitată ${dateFormat.format(paidAt)}', style: muted),
-                BillStatusText(bill: bill),
+                BillStatusText(
+                  bill: bill,
+                  onTap: () => openBillPdf(context, bill),
+                ),
               ],
             ),
           ),
@@ -242,7 +245,6 @@ class _HistoryTile extends StatelessWidget {
               _ => onDelete(),
             },
             itemBuilder: (_) => const [
-              PopupMenuItem(value: 'pdf', child: Text('Deschide')),
               PopupMenuItem(value: 'restore', child: Text('Întoarce')),
               PopupMenuItem(value: 'delete', child: Text('Șterge')),
             ],

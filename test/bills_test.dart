@@ -83,6 +83,13 @@ void main() {
     expect(shortIndexPeriod('august'), 'august');
   });
 
+  test('shortStreet keeps only the street name', () {
+    expect(shortStreet('Strada MIHAI EMINESCU 12, IASI'), 'str. Mihai Eminescu');
+    expect(shortStreet('Avram Iancu 20, Iasi'), 'Avram Iancu');
+    expect(shortStreet('Strada LALELELOR 7, ap. 2, IASI'), 'str. Lalelelor');
+    expect(shortStreet(''), '');
+  });
+
   test('parseAmount handles Romanian and standard formats', () {
     expect(parseAmount('1.234,56'), 1234.56);
     expect(parseAmount('234,5'), 234.5);

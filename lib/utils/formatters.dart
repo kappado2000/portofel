@@ -73,3 +73,24 @@ String shortIndexPeriod(String period) {
 /// Starea plății reale la furnizor, afișată sub factură.
 String billProviderStatus(Bill bill) =>
     bill.openAtProvider ? 'Neplătită' : 'Plătită';
+
+/// Strada unei adrese, pe scurt: „Strada MIHAI EMINESCU 12, IASI” →
+/// „str. Mihai Eminescu”. Fără număr și fără localitate.
+String shortStreet(String address) {
+  var street = address.split(',').first.trim();
+  if (street.isEmpty) return address.trim();
+  street = street.replaceAll(RegExp(r'\s+\d+\s*[A-Za-z]?$'), '');
+  final words = street
+      .split(RegExp(r'\s+'))
+      .map(
+        (w) =>
+            w.isEmpty ? w : w[0].toUpperCase() + w.substring(1).toLowerCase(),
+      )
+      .toList();
+  if (words.first == 'Strada' ||
+      words.first == 'Str.' ||
+      words.first == 'Str') {
+    words[0] = 'str.';
+  }
+  return words.join(' ');
+}
