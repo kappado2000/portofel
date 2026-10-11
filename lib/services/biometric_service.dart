@@ -16,7 +16,7 @@ class BiometricService {
   static Future<bool> authenticate() async {
     try {
       return await _auth.authenticate(
-        localizedReason: 'Autentifică-te pentru a debloca Portofelul',
+        localizedReason: 'Autentifică-te pentru a debloca aplicația Cont',
         persistAcrossBackgrounding: true,
       );
     } catch (_) {

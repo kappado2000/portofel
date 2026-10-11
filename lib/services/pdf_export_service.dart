@@ -12,7 +12,7 @@ class PdfExportService {
   static Future<pw.Document> _buildDocument({
     required List<MoneyTransaction> transactions,
     required MoneyProvider provider,
-    String title = 'Portofel - Istoric tranzacții',
+    String title = 'Cont - Istoric tranzacții',
   }) async {
     final fontData = await rootBundle.load('assets/fonts/NotoSans-Regular.ttf');
     final ttf = pw.Font.ttf(fontData);
