@@ -129,7 +129,7 @@ art = Image.alpha_composite(art, light)
 
 # Portofelul ocupă cea mai mare parte a iconului: desenul e mărit în jurul
 # centrului.
-ART_SCALE = 1.22
+ART_SCALE = 1.12
 big = art.resize((int(SIZE * ART_SCALE), int(SIZE * ART_SCALE)), Image.LANCZOS)
 off = (big.width - SIZE) // 2
 art = big.crop((off, off, off + SIZE, off + SIZE))
