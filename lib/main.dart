@@ -34,7 +34,7 @@ class PortofelApp extends StatelessWidget {
     final themeMode = context.watch<ProfileProvider>().themeMode;
     final lightScheme = ColorScheme.fromSeed(seedColor: Colors.teal);
     return MaterialApp(
-      title: 'Portofel',
+      title: 'Cont',
       debugShowCheckedModeBanner: false,
       themeMode: themeMode,
       theme: ThemeData(

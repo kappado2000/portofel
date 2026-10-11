@@ -95,7 +95,7 @@ class ExcelExportService {
           mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         ),
       ],
-      subject: 'Export Portofel (Excel)',
+      subject: 'Export Cont (Excel)',
       sharePositionOrigin: sharePositionOrigin,
     );
   }
