@@ -86,7 +86,14 @@ class BillStatusText extends StatelessWidget {
       onTap: onTap,
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 4),
-        child: text,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.picture_as_pdf_outlined, size: 18, color: color),
+            const SizedBox(width: 6),
+            text,
+          ],
+        ),
       ),
     );
   }
