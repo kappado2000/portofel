@@ -127,6 +127,13 @@ light = Image.new("RGBA", (SIZE, SIZE), (255, 255, 255, 0))
 light.putalpha(edge.point(lambda v: int(v * 0.55)))
 art = Image.alpha_composite(art, light)
 
+# Portofelul ocupă cea mai mare parte a iconului: desenul e mărit în jurul
+# centrului.
+ART_SCALE = 1.22
+big = art.resize((int(SIZE * ART_SCALE), int(SIZE * ART_SCALE)), Image.LANCZOS)
+off = (big.width - SIZE) // 2
+art = big.crop((off, off, off + SIZE, off + SIZE))
+
 # ── Ieșiri ──
 FINAL = 1024
 full = Image.alpha_composite(background, art).resize((FINAL, FINAL), Image.LANCZOS)
@@ -138,7 +145,7 @@ flat.save(f"{OUT}/app_icon_ios.png")
 
 # Iconul adaptiv Android: același desen, micșorat în zona sigură.
 adaptive = blank()
-scale = 0.72
+scale = 0.66
 scaled = art.resize((int(SIZE * scale), int(SIZE * scale)), Image.LANCZOS)
 adaptive.paste(scaled, (int((SIZE - scaled.width) / 2), int((SIZE - scaled.height) / 2)), scaled)
 adaptive.resize((FINAL, FINAL), Image.LANCZOS).save(f"{OUT}/app_icon_foreground.png")
