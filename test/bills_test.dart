@@ -83,6 +83,13 @@ void main() {
     expect(shortIndexPeriod('august'), 'august');
   });
 
+  test('shortStreet keeps only the street name', () {
+    expect(shortStreet('Strada PETRU MAIOR 50, REGHIN'), 'str. Petru Maior');
+    expect(shortStreet('Mihai Viteazul 176, Reghin'), 'Mihai Viteazul');
+    expect(shortStreet('Strada RODNEI 13, ap. 3, REGHIN'), 'str. Rodnei');
+    expect(shortStreet(''), '');
+  });
+
   test('parseAmount handles Romanian and standard formats', () {
     expect(parseAmount('1.234,56'), 1234.56);
     expect(parseAmount('234,5'), 234.5);

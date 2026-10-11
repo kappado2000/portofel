@@ -56,24 +56,37 @@ class BillIndexBadge extends StatelessWidget {
   }
 }
 
-/// „Plătită” / „Neplătită” la furnizor; roșu când e restantă.
+/// „Plătită” / „Neplătită” la furnizor; roșu când e restantă. Cu [onTap],
+/// apăsarea deschide factura.
 class BillStatusText extends StatelessWidget {
   final Bill bill;
+  final VoidCallback? onTap;
 
-  const BillStatusText({super.key, required this.bill});
+  const BillStatusText({super.key, required this.bill, this.onTap});
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Text(
+    final color = bill.isOverdue
+        ? scheme.error
+        : bill.openAtProvider
+        ? scheme.onSurfaceVariant
+        : scheme.primary;
+    final text = Text(
       billProviderStatus(bill),
       style: TextStyle(
-        color: bill.isOverdue
-            ? scheme.error
-            : bill.openAtProvider
-            ? scheme.onSurfaceVariant
-            : scheme.primary,
-        fontWeight: bill.isOverdue ? FontWeight.bold : null,
+        color: color,
+        fontWeight: FontWeight.w600,
+        decoration: onTap == null ? null : TextDecoration.underline,
+        decorationColor: color,
+      ),
+    );
+    if (onTap == null) return text;
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: text,
       ),
     );
   }

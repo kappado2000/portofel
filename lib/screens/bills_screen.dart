@@ -643,10 +643,15 @@ class _BillsScreenState extends State<BillsScreen> {
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   for (final g in provider.pages)
                     ActionChip(
-                      avatar: const Icon(Icons.folder_outlined, size: 18),
+                      avatar: Icon(
+                        Icons.folder,
+                        size: 20,
+                        color: Colors.amber.shade700,
+                      ),
                       label: Text(
                         '${g.name} · ${_lei(provider.unpaidTotal(page: g.id))}',
                       ),
@@ -657,10 +662,21 @@ class _BillsScreenState extends State<BillsScreen> {
                         ),
                       ),
                     ),
-                  ActionChip(
-                    avatar: const Icon(Icons.add, size: 18),
-                    label: const Text('Pagină nouă'),
-                    onPressed: _addPage,
+                  Tooltip(
+                    message: 'Pagină nouă',
+                    child: Material(
+                      color: Colors.amber.shade700,
+                      borderRadius: BorderRadius.circular(10),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(10),
+                        onTap: _addPage,
+                        child: const SizedBox(
+                          width: 44,
+                          height: 36,
+                          child: Icon(Icons.add, color: Colors.white),
+                        ),
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -779,42 +795,36 @@ class _OverdueBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final total = bills.fold<double>(0, (s, b) => s + b.balance);
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
         color: scheme.errorContainer,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.warning_amber_rounded, color: scheme.onErrorContainer),
-          const SizedBox(width: 12),
+          Icon(
+            Icons.warning_amber_rounded,
+            size: 20,
+            color: scheme.onErrorContainer,
+          ),
+          const SizedBox(width: 10),
           Expanded(
-            child: DefaultTextStyle.merge(
-              style: TextStyle(color: scheme.onErrorContainer),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (final b in bills)
                   Text(
-                    bills.length == 1
-                        ? 'O factură restantă la furnizor: ${_lei(total)}'
-                        : '${bills.length} facturi restante la furnizor: '
-                              '${_lei(total)}',
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 4),
-                  for (final b in bills)
-                    Text(
-                      '${billProviderLabel(b.provider)} · '
-                      '${b.address.isEmpty ? 'cod ${b.contractCode}' : b.address}'
-                      ' · ${_lei(b.balance)} · scadentă la '
-                      '${dateFormat.format(b.dueDate!)}'
-                      '${b.archived ? ' (în istoric)' : ''}',
+                    [
+                      'Restanță ${_lei(b.balance)}',
+                      if (b.address.isNotEmpty) shortStreet(b.address),
+                    ].join(', '),
+                    style: TextStyle(
+                      color: scheme.onErrorContainer,
+                      fontWeight: FontWeight.w600,
                     ),
-                ],
-              ),
+                  ),
+              ],
             ),
           ),
         ],
@@ -916,7 +926,7 @@ class _ProviderSection extends StatelessWidget {
                         _lei(
                           provider.unpaidTotal(p: billProvider, page: pageId),
                         ),
-                        style: textTheme.titleLarge?.copyWith(
+                        style: textTheme.titleMedium?.copyWith(
                           color: tint.onPrimaryContainer,
                           fontWeight: FontWeight.bold,
                         ),
@@ -1034,7 +1044,7 @@ class _BillTile extends StatelessWidget {
                 children: [
                   Text(
                     _lei(bill.amount),
-                    style: textTheme.titleLarge?.copyWith(
+                    style: textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                       decoration: bill.paid ? TextDecoration.lineThrough : null,
                       color: bill.paid
@@ -1048,31 +1058,10 @@ class _BillTile extends StatelessWidget {
                       color: scheme.onSurfaceVariant,
                     ),
                   ),
-                  InkWell(
+                  BillStatusText(
+                    bill: bill,
                     onTap: () => openBillPdf(context, bill),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.picture_as_pdf_outlined,
-                            size: 18,
-                            color: scheme.primary,
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            'Deschide',
-                            style: TextStyle(
-                              color: scheme.primary,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
                   ),
-                  BillStatusText(bill: bill),
                 ],
               ),
             ),
