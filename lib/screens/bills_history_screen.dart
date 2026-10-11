@@ -101,7 +101,9 @@ class BillsHistoryScreen extends StatelessWidget {
     final total = bills.fold<double>(0, (s, b) => s + b.amount);
 
     return Scaffold(
+      backgroundColor: billsPageBackground(context),
       appBar: AppBar(
+        backgroundColor: billsPageBackground(context),
         title: Text(
           provider.pageById(pageId) == null
               ? 'Istoric facturi achitate'

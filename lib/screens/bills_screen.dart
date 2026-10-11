@@ -545,7 +545,9 @@ class _BillsScreenState extends State<BillsScreen> {
     final provider = context.watch<BillsProvider>();
 
     return Scaffold(
+      backgroundColor: billsPageBackground(context),
       appBar: AppBar(
+        backgroundColor: billsPageBackground(context),
         title: Text(provider.pageById(_page)?.name ?? 'Facturi'),
         actions: [
           if (provider.refreshing)
@@ -858,7 +860,7 @@ class _ProviderSection extends StatelessWidget {
     final locations = provider.visibleLocationsFor(billProvider, pageId);
 
     final paidCount = bills.where((b) => b.paid).length;
-    final tint = billProviderScheme(context, billProvider);
+    final tint = billCardColors(context, billProvider);
     final bool? sectionValue = bills.isEmpty || paidCount == 0
         ? false
         : (paidCount == bills.length ? true : null);
@@ -866,22 +868,24 @@ class _ProviderSection extends StatelessWidget {
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       clipBehavior: Clip.antiAlias,
+      color: tint.body,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: tint.primary.withValues(alpha: 0.5)),
+        side: BorderSide(color: tint.header),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Container(
-            color: tint.primaryContainer,
+            color: tint.header,
             padding: const EdgeInsets.fromLTRB(4, 8, 16, 8),
             child: Row(
               children: [
                 Checkbox(
                   tristate: true,
-                  activeColor: tint.primary,
-                  checkColor: tint.onPrimary,
+                  activeColor: tint.onHeader,
+                  checkColor: tint.header,
+                  side: BorderSide(color: tint.onHeader, width: 2),
                   value: sectionValue,
                   onChanged: bills.isEmpty
                       ? null
@@ -898,7 +902,7 @@ class _ProviderSection extends StatelessWidget {
                       Text(
                         name,
                         style: textTheme.titleMedium?.copyWith(
-                          color: tint.onPrimaryContainer,
+                          color: tint.onHeader,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -912,7 +916,7 @@ class _ProviderSection extends StatelessWidget {
                               : 'Actualizat ${dateTimeFormat.format(updated)}',
                         ].join(' · '),
                         style: textTheme.bodySmall?.copyWith(
-                          color: tint.onPrimaryContainer,
+                          color: tint.onHeader,
                         ),
                       ),
                     ],
@@ -927,14 +931,14 @@ class _ProviderSection extends StatelessWidget {
                           provider.unpaidTotal(p: billProvider, page: pageId),
                         ),
                         style: textTheme.titleMedium?.copyWith(
-                          color: tint.onPrimaryContainer,
+                          color: tint.onHeader,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                       Text(
                         'bifate ${_lei(provider.paidTotal(p: billProvider, page: pageId))}',
                         style: textTheme.bodySmall?.copyWith(
-                          color: tint.onPrimaryContainer,
+                          color: tint.onHeader,
                         ),
                       ),
                     ],
@@ -977,11 +981,11 @@ class _ProviderSection extends StatelessWidget {
             for (final location in locations) ...[
               const Divider(height: 1),
               Container(
-                color: tint.primaryContainer.withValues(alpha: 0.35),
+                color: tint.strip,
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
                 child: Row(
                   children: [
-                    Icon(Icons.place_outlined, size: 18, color: tint.primary),
+                    Icon(Icons.place_outlined, size: 18, color: tint.header),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
