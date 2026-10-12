@@ -71,8 +71,8 @@ def glossy_background():
     base = column.resize((SIZE, SIZE), Image.BILINEAR).convert("RGBA")
     # Lumina caldă de jos: un halou larg, trandafiriu, și un miez portocaliu.
     for box, fill, blur, color in [
-        ((0.05, 0.78, 0.95, 1.30), 150, 0.09, (150, 70, 90)),
-        ((0.22, 0.90, 0.78, 1.22), 235, 0.055, (240, 140, 82)),
+        ((0.18, 0.88, 0.82, 1.28), 105, 0.07, (150, 70, 90)),
+        ((0.32, 0.965, 0.68, 1.20), 215, 0.04, (240, 140, 82)),
     ]:
         glow = Image.new("L", (SIZE, SIZE), 0)
         ImageDraw.Draw(glow).ellipse([u(v) for v in box], fill=fill)
