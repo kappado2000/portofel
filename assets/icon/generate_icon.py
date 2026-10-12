@@ -50,10 +50,12 @@ def paint(canvas, mask, top, bottom):
 
 # ── Fundal ──
 BG_STOPS = [
-    (0.00, (13, 0, 48)),
-    (0.45, (7, 4, 78)),
-    (0.72, (14, 15, 105)),
-    (1.00, (30, 12, 72)),
+    (0.00, (11, 0, 44)),
+    (0.20, (9, 0, 54)),
+    (0.50, (6, 4, 77)),
+    (0.75, (11, 2, 66)),
+    (0.88, (18, 4, 50)),
+    (1.00, (30, 8, 45)),
 ]
 
 
@@ -69,8 +71,10 @@ def glossy_background():
                 column.putpixel((0, y), tuple(int(c0[i] + (c1[i] - c0[i]) * k) for i in range(3)))
                 break
     base = column.resize((SIZE, SIZE), Image.BILINEAR).convert("RGBA")
-    # Lumina caldă de jos: un halou larg, trandafiriu, și un miez portocaliu.
+    # O lumină albastră difuză la mijloc, apoi lumina caldă de jos: un halou
+    # trandafiriu și un miez portocaliu.
     for box, fill, blur, color in [
+        ((0.22, 0.38, 0.78, 0.86), 120, 0.10, (16, 18, 110)),
         ((0.18, 0.88, 0.82, 1.28), 105, 0.07, (150, 70, 90)),
         ((0.32, 0.965, 0.68, 1.20), 215, 0.04, (240, 140, 82)),
     ]:
