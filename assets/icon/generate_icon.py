@@ -1,5 +1,5 @@
 """Generează iconul aplicației Portofel: un buzunar deschis la culoare, cu
-trei carduri colorate, pe fond indigo închis cu o lumină caldă jos."""
+trei carduri colorate, pe fondul imaginii de referință."""
 import math
 import sys
 
@@ -49,40 +49,16 @@ def paint(canvas, mask, top, bottom):
 
 
 # ── Fundal ──
-# De jos în sus, fondul se închide continuu: mov jos, aproape negru sus.
-BG_STOPS = [
-    (0.00, (5, 0, 22)),
-    (0.30, (8, 0, 32)),
-    (0.60, (12, 2, 40)),
-    (0.85, (20, 4, 45)),
-    (1.00, (30, 8, 46)),
-]
-
-
 def glossy_background():
-    """Indigo închis, mai albastru spre mijloc, cu o lumină caldă,
-    portocalie, jos la mijloc."""
-    column = Image.new("RGB", (1, 512))
-    for y in range(512):
-        t = y / 511
-        for (t0, c0), (t1, c1) in zip(BG_STOPS, BG_STOPS[1:]):
-            if t0 <= t <= t1:
-                k = (t - t0) / (t1 - t0)
-                column.putpixel((0, y), tuple(int(c0[i] + (c1[i] - c0[i]) * k) for i in range(3)))
-                break
-    base = column.resize((SIZE, SIZE), Image.BILINEAR).convert("RGBA")
-    # Lumina caldă de jos: un halou trandafiriu și un miez portocaliu.
-    for box, fill, blur, color in [
-        ((0.18, 0.88, 0.82, 1.28), 105, 0.07, (150, 70, 90)),
-        ((0.32, 0.965, 0.68, 1.20), 215, 0.04, (240, 140, 82)),
-    ]:
-        glow = Image.new("L", (SIZE, SIZE), 0)
-        ImageDraw.Draw(glow).ellipse([u(v) for v in box], fill=fill)
-        glow = glow.filter(ImageFilter.GaussianBlur(u(blur)))
-        layer = Image.new("RGBA", (SIZE, SIZE), color + (0,))
-        layer.putalpha(glow)
-        base = Image.alpha_composite(base, layer)
-    return base
+    """Fondul e imaginea de referință `background.png` (din același folder),
+    mărită la dimensiunea iconului. Sigla din mijlocul ei rămâne ascunsă sub
+    portofel; se văd doar culorile de fond."""
+    import os
+
+    ref = Image.open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "background.png"))
+    base = ref.convert("RGB").resize((SIZE, SIZE), Image.BICUBIC)
+    # Netezește urmele de compresie ale imaginii mici, mărite.
+    return base.filter(ImageFilter.GaussianBlur(u(0.006))).convert("RGBA")
 
 
 bg_mask = rounded_mask((0, 0, 1, 1), 0.22)
