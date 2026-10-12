@@ -3,7 +3,7 @@ trei carduri colorate, pe fondul imaginii de referință."""
 import math
 import sys
 
-from PIL import Image, ImageChops, ImageDraw, ImageFilter
+from PIL import Image, ImageChops, ImageDraw, ImageEnhance, ImageFilter
 
 SCALE = 4
 SIZE = 1024 * SCALE
@@ -49,6 +49,9 @@ def paint(canvas, mask, top, bottom):
 
 
 # ── Fundal ──
+BG_BRIGHTNESS = float(sys.argv[2]) if len(sys.argv) > 2 else 1.0
+
+
 def glossy_background():
     """Fondul e imaginea de referință `background.png` (din același folder),
     mărită la dimensiunea iconului. Sigla din mijlocul ei rămâne ascunsă sub
@@ -57,6 +60,8 @@ def glossy_background():
 
     ref = Image.open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "background.png"))
     base = ref.convert("RGB").resize((SIZE, SIZE), Image.BICUBIC)
+    # Luminozitatea fondului față de imaginea de referință (1.0 = neschimbată).
+    base = ImageEnhance.Brightness(base).enhance(BG_BRIGHTNESS)
     # Netezește urmele de compresie ale imaginii mici, mărite.
     return base.filter(ImageFilter.GaussianBlur(u(0.006))).convert("RGBA")
 
