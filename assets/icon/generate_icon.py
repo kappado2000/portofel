@@ -1,5 +1,5 @@
 """Generează iconul aplicației Portofel: un buzunar deschis la culoare, cu
-trei carduri colorate, pe fond verde-turcoaz închis."""
+trei carduri colorate, pe fond indigo închis cu o lumină caldă jos."""
 import math
 import sys
 
@@ -48,27 +48,39 @@ def paint(canvas, mask, top, bottom):
     return Image.alpha_composite(canvas, grad)
 
 
-# ── Fundal: verde-turcoazul aplicației, mai închis ──
-BG_TOP, BG_BOTTOM = (0, 26, 32), (0, 80, 86)
+# ── Fundal ──
+BG_STOPS = [
+    (0.00, (13, 0, 48)),
+    (0.45, (7, 4, 78)),
+    (0.72, (14, 15, 105)),
+    (1.00, (30, 12, 72)),
+]
 
 
 def glossy_background():
-    """Turcoaz închis, cu o strălucire difuză sus și un reflex jos."""
-    base = vertical_gradient(BG_TOP, BG_BOTTOM).convert("RGBA")
-    # Strălucire turcoaz, sus-stânga.
-    glow = Image.new("L", (SIZE, SIZE), 0)
-    ImageDraw.Draw(glow).ellipse([u(-0.15), u(-0.42), u(0.75), u(0.22)], fill=70)
-    glow = glow.filter(ImageFilter.GaussianBlur(u(0.11)))
-    shine = Image.new("RGBA", (SIZE, SIZE), (64, 224, 208, 0))
-    shine.putalpha(glow)
-    base = Image.alpha_composite(base, shine)
-    # Reflex mai slab, jos-dreapta.
-    low = Image.new("L", (SIZE, SIZE), 0)
-    ImageDraw.Draw(low).ellipse([u(0.40), u(0.80), u(1.20), u(1.30)], fill=60)
-    low = low.filter(ImageFilter.GaussianBlur(u(0.12)))
-    reflex = Image.new("RGBA", (SIZE, SIZE), (0, 190, 180, 0))
-    reflex.putalpha(low)
-    return Image.alpha_composite(base, reflex)
+    """Indigo închis, mai albastru spre mijloc, cu o lumină caldă,
+    portocalie, jos la mijloc."""
+    column = Image.new("RGB", (1, 512))
+    for y in range(512):
+        t = y / 511
+        for (t0, c0), (t1, c1) in zip(BG_STOPS, BG_STOPS[1:]):
+            if t0 <= t <= t1:
+                k = (t - t0) / (t1 - t0)
+                column.putpixel((0, y), tuple(int(c0[i] + (c1[i] - c0[i]) * k) for i in range(3)))
+                break
+    base = column.resize((SIZE, SIZE), Image.BILINEAR).convert("RGBA")
+    # Lumina caldă de jos: un halou larg, trandafiriu, și un miez portocaliu.
+    for box, fill, blur, color in [
+        ((0.05, 0.78, 0.95, 1.30), 150, 0.09, (150, 70, 90)),
+        ((0.22, 0.90, 0.78, 1.22), 235, 0.055, (240, 140, 82)),
+    ]:
+        glow = Image.new("L", (SIZE, SIZE), 0)
+        ImageDraw.Draw(glow).ellipse([u(v) for v in box], fill=fill)
+        glow = glow.filter(ImageFilter.GaussianBlur(u(blur)))
+        layer = Image.new("RGBA", (SIZE, SIZE), color + (0,))
+        layer.putalpha(glow)
+        base = Image.alpha_composite(base, layer)
+    return base
 
 
 bg_mask = rounded_mask((0, 0, 1, 1), 0.22)
@@ -139,7 +151,7 @@ FINAL = 1024
 full = Image.alpha_composite(background, art).resize((FINAL, FINAL), Image.LANCZOS)
 full.save(f"{OUT}/app_icon.png")
 
-flat = Image.new("RGB", (FINAL, FINAL), (0, 60, 64))
+flat = Image.new("RGB", (FINAL, FINAL), (7, 4, 78))
 flat.paste(Image.alpha_composite(glossy_background(), art).resize((FINAL, FINAL), Image.LANCZOS))
 flat.save(f"{OUT}/app_icon_ios.png")
 
