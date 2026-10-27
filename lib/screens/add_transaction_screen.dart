@@ -6,6 +6,7 @@ import '../models/money_transaction.dart';
 import '../providers/money_provider.dart';
 import '../utils/categories.dart';
 import '../utils/formatters.dart';
+import 'home_screen.dart' show isHomeRoute;
 
 class AddTransactionScreen extends StatefulWidget {
   final int initialTab;
@@ -337,7 +338,7 @@ class _IncomeExpenseFormState extends State<_IncomeExpenseForm> {
       );
     }
 
-    if (mounted) Navigator.of(context).popUntil((route) => route.isFirst);
+    if (mounted) Navigator.of(context).popUntil(isHomeRoute);
   }
 
   Future<void> _delete() async {
@@ -650,7 +651,7 @@ class _TransferFormState extends State<_TransferForm> {
       date: _date,
     );
 
-    if (mounted) Navigator.of(context).popUntil((route) => route.isFirst);
+    if (mounted) Navigator.of(context).popUntil(isHomeRoute);
   }
 
   Future<void> _delete() async {

@@ -14,7 +14,6 @@ import '../widgets/transaction_tile.dart';
 import 'account_detail_screen.dart';
 import 'accounts_screen.dart';
 import 'add_transaction_screen.dart';
-import 'bills_screen.dart';
 import 'family_accounts_screen.dart';
 import 'history_screen.dart';
 import 'settings_screen.dart';
@@ -22,6 +21,15 @@ import 'settings_screen.dart';
 enum _CurrencyFilter { all, ron, eur }
 
 enum _TxFilter { all, income, expense }
+
+/// Numele rutei paginii Cont, ca ecranele deschise din ea să se poată
+/// întoarce exact aici (nu până la ecranul de start).
+const homeRouteName = '/cont';
+
+/// Adevărat pentru ruta paginii Cont sau, dacă ea nu e în stivă, pentru
+/// prima rută.
+bool isHomeRoute(Route<dynamic> route) =>
+    route.settings.name == homeRouteName || route.isFirst;
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -91,15 +99,6 @@ class _HomeScreenState extends State<HomeScreen> {
             onPressed: () => Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const HistoryScreen()),
-            ),
-          ),
-          IconButton(
-            visualDensity: VisualDensity.compact,
-            icon: const Icon(Icons.receipt_long_outlined),
-            tooltip: 'Facturi',
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const BillsScreen()),
             ),
           ),
           IconButton(

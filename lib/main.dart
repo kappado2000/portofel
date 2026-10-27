@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 import 'providers/bills_provider.dart';
 import 'providers/money_provider.dart';
 import 'providers/profile_provider.dart';
-import 'screens/home_screen.dart';
+import 'screens/start_screen.dart';
 import 'screens/lock_screen.dart';
 
 Future<void> main() async {
@@ -98,6 +98,6 @@ class _AuthGateState extends State<AuthGate> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    return const HomeScreen();
+    return const StartScreen();
   }
 }
