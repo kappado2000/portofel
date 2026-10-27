@@ -682,6 +682,15 @@ class BillsProvider extends ChangeNotifier {
             ..indexPeriod = f.indexPeriod.isEmpty
                 ? existing.indexPeriod
                 : f.indexPeriod;
+          // La Hidroelectrica indexul se recalculează la fiecare actualizare;
+          // lipsa lui înseamnă că cel vechi nu se potrivea facturii.
+          if (f.provider == BillProvider.hidroelectrica) {
+            existing
+              ..indexFrom = f.indexFrom
+              ..indexTo = f.indexTo
+              ..readingType = f.readingType
+              ..indexPeriod = f.indexPeriod;
+          }
         }
         await _billsBox?.put(existing.id, existing.toMap());
       }

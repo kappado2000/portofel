@@ -308,7 +308,7 @@ class HidroelectricaApi {
         final target = balance > 0 && accountBills.first.issueDate == null
             ? accountBills.first
             : newest;
-        final interval = await _lastInterval(entry);
+        final interval = await _lastInterval(entry, issuedOn: target.issueDate);
         if (interval != null) {
           target
             ..indexFrom = interval.$1
@@ -357,9 +357,16 @@ class HidroelectricaApi {
 
   /// Ultimele două citiri ale registrului de consum: (index vechi, index
   /// nou, tipul ultimei citiri, perioada). Hidroelectrica nu leagă citirile
-  /// de o factură anume, deci acesta e intervalul cel mai recent, nu neapărat
-  /// exact cel de pe factură. Întoarce `null` dacă nu poate fi determinat.
-  Future<(double?, double, String, String)?> _lastInterval(Map entry) async {
+  /// de o factură anume, așa că intervalul se folosește doar dacă ultima
+  /// citire e din perioada facturii emise la [issuedOn] (cel mult cu 45 de
+  /// zile înainte). Altfel factura s-a făcut pe un index pe care API-ul nu
+  /// îl dă (de obicei o estimare), iar un interval vechi ar fi greșit —
+  /// întoarce `null`.
+  Future<(double?, double, String, String)?> _lastInterval(
+    Map entry, {
+    DateTime? issuedOn,
+  }) async {
+    if (issuedOn == null) return null;
     try {
       final rows = (await _readHistory(entry))
           .where((r) => !'${r['Registers'] ?? ''}'.endsWith('_P'))
@@ -370,6 +377,11 @@ class HidroelectricaApi {
             parseBillDate(b['Date'])!.compareTo(parseBillDate(a['Date'])!),
       );
       final last = rows.first;
+      final lastDate = parseBillDate(last['Date'])!;
+      if (lastDate.isAfter(issuedOn.add(const Duration(days: 3))) ||
+          lastDate.isBefore(issuedOn.subtract(const Duration(days: 45)))) {
+        return null;
+      }
       final previous = rows
           .skip(1)
           .where(
